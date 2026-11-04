@@ -10,11 +10,10 @@ Rectangle {
     signal openLibrary()
     signal openSettings()
     signal collapse()
+    signal toggleTheme()
 
     function focusSearch() { search.forceActiveFocus() }
 
-    // Right edge hairline
-    Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.borderSubtle }
 
     ColumnLayout {
         anchors.fill: parent
@@ -22,26 +21,47 @@ Rectangle {
         spacing: 0
 
         // ---------------------------------------------------------------- top
+        // Title-bar row: traffic lights sit on the left; empty space drags the window.
+        Item {
+            Layout.fillWidth: true
+            Layout.preferredHeight: Theme.titleBarHeight
+            MouseArea {
+                anchors.fill: parent
+                onPressed: window.startDrag()
+                onDoubleClicked: window.toggleZoom()
+            }
+            Row {
+                anchors.right: parent.right
+                anchors.rightMargin: 8
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 2
+                C.IconButton { iconName: "sidebar"; tip: "Hide sidebar  ⌘\\"; onClicked: root.collapse() }
+            }
+        }
+
         RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: 12
-            Layout.leftMargin: 14
-            Layout.rightMargin: 8
-            spacing: 8
-            Image {
-                source: "../resources/icons/logo.svg"
-                sourceSize: Qt.size(52, 52)
-                Layout.preferredWidth: 26
-                Layout.preferredHeight: 26
-            }
-            Text {
-                text: "SmolChat"
-                color: Theme.text
-                font.pixelSize: Theme.fontLg
-                font.weight: Font.DemiBold
+            Layout.leftMargin: 16
+            Layout.rightMargin: 12
+            Layout.bottomMargin: 6
+            spacing: 10
+            C.LogoMark { size: 32 }
+            ColumnLayout {
+                spacing: 0
                 Layout.fillWidth: true
+                Text {
+                    text: "SmolChat"
+                    color: Theme.text
+                    font.pixelSize: Theme.fontLg
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: -0.2
+                }
+                Text {
+                    text: "by SmolWorks"
+                    color: Theme.textTertiary
+                    font.pixelSize: Theme.fontXs
+                }
             }
-            C.IconButton { iconName: "sidebar"; tip: "Hide sidebar  ⌘\\"; onClicked: root.collapse() }
         }
 
         // New chat
@@ -51,17 +71,24 @@ Rectangle {
             Layout.leftMargin: 8
             Layout.rightMargin: 8
             Layout.topMargin: 14
-            implicitHeight: 36
+            implicitHeight: 40
             hoverEnabled: true
             onClicked: backend.newChat()
-            background: Rectangle {
-                radius: Theme.radiusMd
-                color: newChatBtn.hovered ? Theme.hover : "transparent"
+            scale: down ? 0.98 : 1
+            Behavior on scale { NumberAnimation { duration: 90 } }
+            background: C.Glass {
+                radius: 12
+                hovered: newChatBtn.hovered
             }
             contentItem: RowLayout {
                 spacing: 10
-                C.Icon { name: "new-chat"; size: 17; color: Theme.text; Layout.leftMargin: 8 }
-                Text { text: "New chat"; color: Theme.text; font.pixelSize: Theme.fontMd; Layout.fillWidth: true }
+                Rectangle {
+                    Layout.leftMargin: 6
+                    width: 24; height: 24; radius: 8
+                    color: Theme.brandSoft
+                    C.Icon { anchors.centerIn: parent; name: "plus"; size: 15; color: Theme.brand }
+                }
+                Text { text: "New chat"; color: Theme.text; font.pixelSize: Theme.fontMd; font.weight: Font.Medium; Layout.fillWidth: true }
                 Text { text: "⌘N"; color: Theme.textTertiary; font.pixelSize: Theme.fontXs; Layout.rightMargin: 8; visible: newChatBtn.hovered }
             }
         }
@@ -90,6 +117,16 @@ Rectangle {
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded; width: 8 }
             section.property: "section"
+            add: Transition {
+                NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.normal }
+                NumberAnimation { property: "x"; from: -12; to: 0; duration: Theme.normal; easing.type: Easing.OutCubic }
+            }
+            remove: Transition {
+                NumberAnimation { property: "opacity"; to: 0; duration: Theme.fast }
+            }
+            displaced: Transition {
+                NumberAnimation { properties: "x,y"; duration: Theme.normal; easing.type: Easing.OutCubic }
+            }
             section.delegate: Text {
                 required property string section
                 text: section
@@ -119,6 +156,17 @@ Rectangle {
                     anchors.rightMargin: 8
                     radius: Theme.radiusMd - 2
                     color: row.current ? Theme.selected : rowMouse.containsMouse || moreBtn.hovered ? Theme.hover : "transparent"
+                    Behavior on color { ColorAnimation { duration: Theme.fast } }
+                    Rectangle {
+                        width: 3
+                        height: row.current ? 16 : 0
+                        radius: 1.5
+                        anchors.left: parent.left
+                        anchors.leftMargin: 3
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: Theme.brand
+                        Behavior on height { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutBack } }
+                    }
                 }
 
                 MouseArea {
@@ -211,95 +259,75 @@ Rectangle {
             }
         }
 
-        C.Separator { Layout.fillWidth: true }
 
         // -------------------------------------------------------------- bottom
-        // Current model indicator – opens the library.
-        AbstractButton {
-            id: modelIndicator
+        RowLayout {
             Layout.fillWidth: true
-            Layout.leftMargin: 8
+            Layout.leftMargin: 10
             Layout.rightMargin: 8
             Layout.topMargin: 8
-            implicitHeight: 48
-            hoverEnabled: true
-            onClicked: root.openLibrary()
-            ToolTip.visible: hovered && backend.hardwareSummary !== ""
-            ToolTip.delay: 700
-            ToolTip.text: backend.hardwareSummary
-            background: Rectangle { radius: Theme.radiusMd; color: modelIndicator.hovered ? Theme.hover : "transparent" }
-            contentItem: RowLayout {
-                spacing: 10
-                Rectangle {
-                    Layout.leftMargin: 8
-                    width: 28; height: 28; radius: 8
-                    color: Theme.surface
-                    C.Icon { anchors.centerIn: parent; name: "chip"; size: 16; color: Theme.textSecondary }
+            Layout.bottomMargin: 12
+            spacing: 4
+
+            // Compact status: what's loaded; opens the Model Library.
+            AbstractButton {
+                id: statusBtn
+                Layout.fillWidth: true
+                implicitHeight: 46
+                hoverEnabled: true
+                onClicked: root.openLibrary()
+                scale: down ? 0.98 : 1
+                Behavior on scale { NumberAnimation { duration: 90 } }
+                ToolTip.visible: hovered && backend.hardwareSummary !== ""
+                ToolTip.delay: 700
+                ToolTip.text: backend.hardwareSummary
+                background: C.Glass { radius: 12; hovered: statusBtn.hovered }
+                contentItem: RowLayout {
+                    spacing: 10
                     Rectangle {
-                        width: 9; height: 9; radius: 4.5
-                        anchors.right: parent.right; anchors.bottom: parent.bottom
-                        anchors.rightMargin: -2; anchors.bottomMargin: -2
-                        border.width: 2; border.color: Theme.sidebar
+                        Layout.leftMargin: 12
+                        width: 8; height: 8; radius: 4
                         color: backend.runtimeState === "loading" ? Theme.warning
                              : backend.loadedModelId ? Theme.success : Theme.textTertiary
                         SequentialAnimation on opacity {
-                            running: backend.runtimeState === "loading"
+                            running: backend.runtimeState !== "idle"
                             loops: Animation.Infinite
-                            NumberAnimation { to: 0.3; duration: 500 }
-                            NumberAnimation { to: 1; duration: 500 }
+                            onRunningChanged: if (!running) parent.opacity = 1
+                            NumberAnimation { to: 0.3; duration: 550 }
+                            NumberAnimation { to: 1; duration: 550 }
                         }
                     }
-                }
-                ColumnLayout {
-                    spacing: 1
-                    Layout.fillWidth: true
-                    Text {
-                        text: backend.runtimeState === "loading" ? backend.statusText
-                            : backend.loadedModelName ? backend.loadedModelName
-                            : backend.hasInstalledModels ? "No model loaded" : "No models downloaded"
-                        color: Theme.text
-                        font.pixelSize: Theme.fontSm + 1
-                        font.weight: Font.Medium
-                        elide: Text.ElideRight
+                    ColumnLayout {
+                        spacing: 0
                         Layout.fillWidth: true
+                        Text {
+                            text: backend.runtimeState === "loading" ? backend.statusText
+                                : backend.loadedModelName ? backend.loadedModelName
+                                : backend.hasInstalledModels ? "Ready" : "No models yet"
+                            color: Theme.text
+                            font.pixelSize: Theme.fontSm + 1
+                            font.weight: Font.Medium
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
+                        Text {
+                            text: backend.activeDownloads > 0 ? "Downloading " + backend.activeDownloads + " model" + (backend.activeDownloads > 1 ? "s" : "") + "…"
+                                : "Model Library"
+                            color: backend.activeDownloads > 0 ? Theme.brand : Theme.textTertiary
+                            font.pixelSize: Theme.fontXs
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
                     }
-                    Text {
-                        text: backend.loadedModelName ? "Loaded · running on this Mac"
-                            : backend.hasInstalledModels ? "Loads on your next message" : "Open the library to get started"
-                        color: Theme.textTertiary
-                        font.pixelSize: Theme.fontXs
-                        elide: Text.ElideRight
-                        Layout.fillWidth: true
-                    }
+                    C.Icon { name: "chevron-right"; size: 13; color: Theme.textTertiary; Layout.rightMargin: 10 }
                 }
             }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 8
-            Layout.rightMargin: 8
-            Layout.topMargin: 2
-            Layout.bottomMargin: 10
-            spacing: 2
-            AbstractButton {
-                id: libBtn
-                Layout.fillWidth: true
-                implicitHeight: 34
-                hoverEnabled: true
-                onClicked: root.openLibrary()
-                background: Rectangle { radius: Theme.radiusMd; color: libBtn.hovered ? Theme.hover : "transparent" }
-                contentItem: RowLayout {
-                    spacing: 10
-                    C.Icon { name: "library"; size: 16; color: Theme.textSecondary; Layout.leftMargin: 8 }
-                    Text { text: "Model Library"; color: Theme.text; font.pixelSize: Theme.fontMd - 1; Layout.fillWidth: true }
-                    C.Badge {
-                        visible: backend.activeDownloads > 0
-                        text: backend.activeDownloads + " ↓"
-                        tint: Theme.brand
-                        Layout.rightMargin: 6
-                    }
-                }
+            C.IconButton {
+                id: themeBtn
+                iconName: Theme.dark ? "sun" : "moon"
+                tip: Theme.dark ? "Switch to light  ⇧⌘L" : "Switch to dark  ⇧⌘L"
+                onClicked: { spin.restart(); root.toggleTheme() }
+                RotationAnimation on rotation { id: spin; running: false; from: -90; to: 0; duration: 420; easing.type: Easing.OutBack }
             }
             C.IconButton { iconName: "settings"; tip: "Settings  ⌘,"; onClicked: root.openSettings() }
         }

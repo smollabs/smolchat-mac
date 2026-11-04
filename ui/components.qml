@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Shapes
+import QtQuick.Effects
 import "."
 
 // Shared building blocks, used as C.Icon, C.IconButton, C.Button, ...
@@ -37,6 +39,8 @@ QtObject {
         implicitHeight: 32
         hoverEnabled: true
         focusPolicy: Qt.NoFocus
+        scale: down ? 0.92 : 1
+        Behavior on scale { NumberAnimation { duration: 90 } }
         background: Rectangle {
             radius: Theme.radiusSm + 2
             color: ib.down ? Theme.hoverStrong : (ib.hovered || ib.highlighted) ? Theme.hover : "transparent"
@@ -65,16 +69,24 @@ QtObject {
         implicitHeight: compact ? 28 : 34
         implicitWidth: row.implicitWidth + (compact ? 20 : 28)
         hoverEnabled: true
+        scale: down ? 0.97 : 1
+        Behavior on scale { NumberAnimation { duration: 90 } }
         font.family: Theme.fontFamily
         font.pixelSize: compact ? Theme.fontSm : Theme.fontMd - 1
         font.weight: Font.Medium
-        readonly property color fg: kind === "primary" ? Theme.textOnAccent
+        readonly property color fg: kind === "primary" ? "#ffffff"
                                    : kind === "danger" ? "#ffffff" : Theme.text
         background: Rectangle {
             radius: btn.height / 2
+            gradient: btn.kind === "primary" && btn.enabled ? primaryGradient : null
+            Gradient {
+                id: primaryGradient
+                GradientStop { position: 0; color: Qt.lighter(Theme.brand, btn.hovered ? 1.12 : 1.0) }
+                GradientStop { position: 1; color: Qt.darker(Theme.brand, 1.35) }
+            }
             color: {
                 if (!btn.enabled) return btn.kind === "primary" ? Theme.accentMuted : "transparent"
-                if (btn.kind === "primary") return btn.hovered ? Qt.darker(Theme.accent, 1.12) : Theme.accent
+                if (btn.kind === "primary") return Theme.brand
                 if (btn.kind === "danger") return btn.hovered ? Qt.darker(Theme.danger, 1.1) : Theme.danger
                 if (btn.kind === "ghost") return btn.hovered ? Theme.hover : "transparent"
                 return btn.hovered ? Theme.hover : "transparent"
@@ -187,9 +199,11 @@ QtObject {
         implicitHeight: 34
         background: Rectangle {
             radius: Theme.radiusMd
-            color: Theme.dark ? "#00000000" : "#00ffffff"
             border.width: 1
-            border.color: field.activeFocus ? Theme.textTertiary : Theme.borderSubtle
+            color: field.activeFocus ? Theme.surface : "transparent"
+            border.color: field.activeFocus ? Theme.brand : Theme.borderSubtle
+            Behavior on border.color { ColorAnimation { duration: Theme.fast } }
+            Behavior on color { ColorAnimation { duration: Theme.fast } }
             Icon {
                 visible: field.iconName !== ""
                 name: field.iconName
@@ -266,14 +280,11 @@ QtObject {
         padding: 5
         implicitWidth: 260
         delegate: MenuItemStyled {}
-        background: Rectangle {
-            implicitWidth: 220
-            color: Theme.popup
-            radius: Theme.radiusMd + 2
-            border.color: Theme.border
-            border.width: 1
+        background: Glass { implicitWidth: 220; radius: 14; fill: Theme.popup }
+        enter: Transition {
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.fast }
+            NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: Theme.normal; easing.type: Easing.OutCubic }
         }
-        enter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.fast } }
         exit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: Theme.fast } }
     }
 
@@ -301,11 +312,7 @@ QtObject {
         padding: 22
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         Overlay.modal: Rectangle { color: Theme.overlay }
-        background: Rectangle {
-            color: Theme.popup
-            radius: Theme.radiusLg
-            border.color: Theme.border
-        }
+        background: Glass { radius: 18; fill: Theme.popup }
         enter: Transition {
             NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.fast }
             NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: Theme.normal; easing.type: Easing.OutCubic }
@@ -377,6 +384,378 @@ QtObject {
                     NumberAnimation { to: 1; duration: 380; easing.type: Easing.InOutQuad }
                     NumberAnimation { to: 0.25; duration: 380; easing.type: Easing.InOutQuad }
                     PauseAnimation { duration: (2 - index) * 160 }
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ glossy kit
+
+    // Rounded panel with ambient, slowly drifting accent light.
+    component Backdrop: Item {
+        id: bd
+        property real radius: 18
+        property bool animate: true
+        property real drift: 0
+        NumberAnimation on drift {
+            running: bd.animate && bd.visible
+            from: 0; to: Math.PI * 2
+            duration: 26000
+            loops: Animation.Infinite
+        }
+        readonly property color glowA: Qt.rgba(Theme.brand.r, Theme.brand.g, Theme.brand.b, Theme.glowStrength)
+        readonly property color glowB: Qt.rgba(Theme.brand.r, Theme.brand.g, Theme.brand.b, Theme.glowStrength * 0.8)
+
+        Shape {
+            anchors.fill: parent
+            preferredRendererType: Shape.CurveRenderer
+            ShapePath {
+                strokeWidth: -1
+                fillColor: Theme.panel
+                PathRectangle { x: 0; y: 0; width: bd.width; height: bd.height; radius: bd.radius }
+            }
+            // Main glow, upper right
+            ShapePath {
+                strokeWidth: -1
+                fillGradient: RadialGradient {
+                    centerX: bd.width * (0.10 + 0.05 * Math.cos(bd.drift))
+                    centerY: bd.height * (0.02 + 0.04 * Math.sin(bd.drift))
+                    centerRadius: Math.max(bd.width, bd.height) * 0.62
+                    focalX: centerX; focalY: centerY
+                    GradientStop { position: 0.0; color: bd.glowA }
+                    GradientStop { position: 0.45; color: Qt.rgba(bd.glowA.r, bd.glowA.g, bd.glowA.b, bd.glowA.a * 0.35) }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
+                PathRectangle { x: 0; y: 0; width: bd.width; height: bd.height; radius: bd.radius }
+            }
+            // Secondary glow, behind the centre stage
+            ShapePath {
+                strokeWidth: -1
+                fillGradient: RadialGradient {
+                    centerX: bd.width * (0.94 + 0.04 * Math.sin(bd.drift * 2))
+                    centerY: bd.height * (0.98 + 0.03 * Math.cos(bd.drift))
+                    centerRadius: Math.max(bd.width, bd.height) * 0.6
+                    focalX: centerX; focalY: centerY
+                    GradientStop { position: 0.0; color: bd.glowB }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
+                PathRectangle { x: 0; y: 0; width: bd.width; height: bd.height; radius: bd.radius }
+            }
+            // Hairline edge
+            ShapePath {
+                strokeWidth: 1
+                strokeColor: Theme.panelEdge
+                fillColor: "transparent"
+                PathRectangle { x: 0.5; y: 0.5; width: bd.width - 1; height: bd.height - 1; radius: bd.radius }
+            }
+        }
+    }
+
+    // The smollabs mascot rendered as a glossy 3D figure: an extruded body
+    // (stacked tinted silhouettes whose depth follows the tilt), a light sweep
+    // masked to the mascot's shape, warm core + violet outer glow, floor
+    // shadow, orbiting sparkles and pointer-driven perspective tilt.
+    component Mascot3D: Item {
+        id: m
+        property real size: 240                 // width; height follows the artwork
+        property real tiltX: 0
+        property real tiltY: 0
+        property bool animate: true
+        property real energy: 0                 // > 0 while busy: livelier motion
+        property int depth: 7                   // extrusion slices
+        readonly property real ratio: 705 / 1060
+        width: size
+        height: size * ratio
+        implicitWidth: width
+        implicitHeight: height
+
+        property real t: 0
+        NumberAnimation on t {
+            running: m.animate && m.visible
+            from: 0; to: Math.PI * 2
+            duration: m.energy > 0 ? 3400 : 8200
+            loops: Animation.Infinite
+        }
+        property real sweep: -0.5
+        SequentialAnimation on sweep {
+            running: m.animate && m.visible
+            loops: Animation.Infinite
+            NumberAnimation { from: -0.5; to: 1.5; duration: 2000; easing.type: Easing.InOutCubic }
+            PauseAnimation { duration: 4200 }
+        }
+
+        property real smoothTiltX: tiltX
+        property real smoothTiltY: tiltY
+        Behavior on smoothTiltX { SpringAnimation { spring: 2.4; damping: 0.26 } }
+        Behavior on smoothTiltY { SpringAnimation { spring: 2.4; damping: 0.26 } }
+        readonly property real rx: smoothTiltX + (animate ? 4 * Math.sin(t) : 0)
+        readonly property real ry: smoothTiltY + (animate ? 6 * Math.cos(t * 0.75) : 0)
+        readonly property real lift: animate ? 6 * Math.sin(t * 1.3) : 0
+        // Extrusion direction: the body shows on the side facing away from the light.
+        readonly property real ex: -ry * 0.035 * size / 240
+        readonly property real ey: (0.8 + rx * 0.025) * size / 240
+
+        // Floor shadow
+        Shape {
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: m.height * 0.9
+            width: m.size * 0.8
+            height: m.size * 0.16
+            opacity: 0.85 - m.lift * 0.03
+            preferredRendererType: Shape.CurveRenderer
+            ShapePath {
+                strokeWidth: -1
+                fillGradient: RadialGradient {
+                    centerX: m.size * 0.4; centerY: m.size * 0.08
+                    centerRadius: m.size * 0.4
+                    focalX: centerX; focalY: centerY
+                    GradientStop { position: 0; color: Theme.dark ? "#a6000000" : "#33000000" }
+                    GradientStop { position: 1; color: "transparent" }
+                }
+                PathRectangle { x: 0; y: 0; width: m.size * 0.8; height: m.size * 0.16; radius: m.size * 0.08 }
+            }
+        }
+
+        // Glow: warm flame core inside a violet aura
+        Shape {
+            anchors.centerIn: parent
+            width: m.size * 1.7; height: width
+            scale: 1 + 0.04 * Math.sin(m.t * 2) + m.energy * 0.07 * Math.sin(m.t * 4)
+            preferredRendererType: Shape.CurveRenderer
+            ShapePath {
+                strokeWidth: -1
+                fillGradient: RadialGradient {
+                    centerX: m.size * 0.85; centerY: m.size * 0.85
+                    centerRadius: m.size * 0.85
+                    focalX: centerX; focalY: centerY
+                    GradientStop { position: 0.0; color: Qt.rgba(Theme.flame.r, Theme.flame.g, Theme.flame.b, Theme.dark ? 0.30 : 0.18) }
+                    GradientStop { position: 0.32; color: Qt.rgba(Theme.brand.r, Theme.brand.g, Theme.brand.b, Theme.dark ? 0.30 : 0.16) }
+                    GradientStop { position: 0.7; color: Qt.rgba(Theme.brand.r, Theme.brand.g, Theme.brand.b, 0.06) }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
+                PathRectangle { x: 0; y: 0; width: m.size * 1.7; height: m.size * 1.7; radius: m.size * 0.85 }
+            }
+        }
+
+        // Artwork sources (hidden; sampled by the effects below)
+        Image {
+            id: art
+            anchors.fill: body
+            source: "../resources/assets/logo/smollabs_mascot_clean.png"
+            sourceSize: Qt.size(Math.min(1060, m.size * 2.2), Math.min(705, m.size * 2.2 * m.ratio))
+            smooth: true
+            mipmap: true
+            visible: false
+        }
+        Item {
+            id: sweepSource
+            anchors.fill: body
+            visible: false
+            clip: true
+            Rectangle {
+                width: m.size * 0.5
+                height: m.height * 3
+                x: m.size * m.sweep - width / 2
+                y: -m.height
+                rotation: 22
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0; color: "transparent" }
+                    GradientStop { position: 0.5; color: "#80ffffff" }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
+            }
+        }
+
+        Item {
+            id: body
+            anchors.fill: parent
+            transform: [
+                Rotation { origin.x: m.width / 2; origin.y: m.height / 2; axis { x: 1; y: 0; z: 0 } angle: m.rx },
+                Rotation { origin.x: m.width / 2; origin.y: m.height / 2; axis { x: 0; y: 1; z: 0 } angle: m.ry },
+                Translate { y: -m.lift }
+            ]
+
+            // Extruded body
+            Repeater {
+                model: m.depth
+                MultiEffect {
+                    required property int index
+                    readonly property int slice: m.depth - index      // farthest first
+                    x: slice * m.ex
+                    y: slice * m.ey
+                    width: m.width
+                    height: m.height
+                    source: art
+                    autoPaddingEnabled: false
+                    colorization: 1.0
+                    colorizationColor: Qt.darker(Theme.brandDeep, 1 + slice * 0.09)
+                }
+            }
+
+            // Face with a soft violet aura
+            MultiEffect {
+                anchors.fill: parent
+                source: art
+                autoPaddingEnabled: true
+                shadowEnabled: true
+                shadowColor: Qt.rgba(Theme.brand.r, Theme.brand.g, Theme.brand.b, Theme.dark ? 0.55 : 0.35)
+                shadowBlur: 1.0
+                blurMax: 40
+                shadowScale: 1.02
+                shadowHorizontalOffset: 0
+                shadowVerticalOffset: 0
+                brightness: 0.02
+                saturation: 0.08
+            }
+
+            // Light sweep, clipped to the mascot's silhouette
+            MultiEffect {
+                anchors.fill: parent
+                source: sweepSource
+                maskEnabled: true
+                maskSource: art
+                autoPaddingEnabled: false
+                opacity: 0.9
+            }
+        }
+
+        // Orbiting sparkles for depth
+        Repeater {
+            model: 5
+            Text {
+                id: sp
+                required property int index
+                readonly property real a: m.t * (index % 2 ? 1 : -1) + index * 1.26
+                x: m.width / 2 + Math.cos(a) * m.size * (0.52 + index * 0.03) - width / 2
+                y: m.height / 2 + Math.sin(a) * m.size * 0.22 - height / 2 - m.lift
+                z: Math.sin(a) > 0 ? 1 : -1
+                text: "✦"
+                color: index % 2 ? Theme.flameLight : Qt.lighter(Theme.brand, 1.3)
+                font.pixelSize: 9 + index * 2
+                opacity: m.animate ? 0.35 + 0.5 * (0.5 + 0.5 * Math.sin(a * 2)) : 0
+                scale: 0.75 + 0.3 * Math.sin(a)
+            }
+        }
+    }
+
+    // Small flat logo mark (sidebar, avatars).
+    component LogoMark: Item {
+        id: mark
+        property real size: 28
+        property bool busy: false
+        width: size
+        height: size
+        implicitWidth: size
+        implicitHeight: size
+        Image {
+            anchors.fill: parent
+            source: "../resources/assets/logo/logo-157.png"
+            sourceSize: Qt.size(mark.size * 2, mark.size * 2)
+            smooth: true
+            mipmap: true
+        }
+        // Breathing accent ring while busy
+        Rectangle {
+            anchors.centerIn: parent
+            width: mark.size + 6; height: width
+            radius: mark.size * 0.105 + 3
+            color: "transparent"
+            border.width: 1.5
+            border.color: Theme.brand
+            visible: mark.busy
+            SequentialAnimation on opacity {
+                running: mark.busy
+                loops: Animation.Infinite
+                NumberAnimation { from: 0.15; to: 0.95; duration: 700; easing.type: Easing.InOutSine }
+                NumberAnimation { from: 0.95; to: 0.15; duration: 700; easing.type: Easing.InOutSine }
+            }
+        }
+    }
+
+    // Glass panel: translucent fill, gradient edge (bright on top) and sheen.
+    component Glass: Item {
+        id: glass
+        property real radius: 16
+        property bool hovered: false
+        property bool active: false
+        property color fill: hovered ? Theme.glassFillHover : Theme.glassFill
+        // Edge
+        Rectangle {
+            anchors.fill: parent
+            radius: glass.radius
+            gradient: Gradient {
+                GradientStop { position: 0; color: glass.active ? Qt.rgba(Theme.brand.r, Theme.brand.g, Theme.brand.b, 0.75) : Theme.glassEdgeTop }
+                GradientStop { position: 1; color: glass.active ? Qt.rgba(Theme.brand.r, Theme.brand.g, Theme.brand.b, 0.30) : Theme.glassEdgeBottom }
+            }
+        }
+        // Body
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: 1
+            radius: glass.radius - 1
+            color: glass.fill
+            Behavior on color { ColorAnimation { duration: Theme.fast } }
+            // Sheen
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                height: Math.min(parent.height, 48)
+                radius: parent.radius
+                gradient: Gradient {
+                    GradientStop { position: 0; color: Theme.glassSheen }
+                    GradientStop { position: 1; color: "transparent" }
+                }
+            }
+        }
+    }
+
+    // Pill button with glass styling: icon and/or text.
+    component Pill: AbstractButton {
+        id: pill
+        property string iconName
+        property string trailingIcon
+        property bool accent: false
+        property int iconSize: 14
+        implicitHeight: 32
+        implicitWidth: pillRow.implicitWidth + 26
+        hoverEnabled: true
+        scale: down ? 0.96 : 1
+        Behavior on scale { NumberAnimation { duration: 90 } }
+        font.pixelSize: Theme.fontSm + 1
+        font.weight: Font.Medium
+        background: Glass {
+            radius: pill.height / 2
+            hovered: pill.hovered
+            active: pill.accent
+        }
+        contentItem: Item {
+            implicitWidth: pillRow.implicitWidth
+            Row {
+                id: pillRow
+                anchors.centerIn: parent
+                spacing: 7
+                Icon {
+                    visible: pill.iconName !== ""
+                    name: pill.iconName
+                    size: pill.iconSize
+                    color: pill.accent ? Theme.brand : Theme.textSecondary
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                Text {
+                    visible: pill.text !== ""
+                    text: pill.text
+                    font: pill.font
+                    color: Theme.text
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                Icon {
+                    visible: pill.trailingIcon !== ""
+                    name: pill.trailingIcon
+                    size: 13
+                    color: Theme.textTertiary
+                    anchors.verticalCenter: parent.verticalCenter
                 }
             }
         }

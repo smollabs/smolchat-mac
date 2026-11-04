@@ -29,21 +29,30 @@ def main() -> int:
     app.setApplicationDisplayName(APP_NAME)
     app.setOrganizationName(ORG_NAME)
     app.setApplicationVersion(APP_VERSION)
-    app.setWindowIcon(QIcon(str(resource_root() / "resources" / "icons" / "logo.svg")))
+    icon = QIcon()
+    for size in (157, 314, 627, 1254):
+        icon.addFile(str(resource_root() / "resources" / "assets" / "logo" / f"logo-{size}.png"))
+    app.setWindowIcon(icon)  # also the Dock icon on macOS
 
     backend = Backend(paths)
-    if backend.settings.theme == "dark":
-        app.styleHints().setColorScheme(Qt.ColorScheme.Dark)
-    else:
-        app.styleHints().setColorScheme(Qt.ColorScheme.Light)
-    backend.settingsChanged.connect(
-        lambda: app.styleHints().setColorScheme(
-            Qt.ColorScheme.Dark if backend.settings.theme == "dark" else Qt.ColorScheme.Light
-        )
-    )
+
+    def apply_color_scheme() -> None:
+        # Native chrome (title bar, file dialogs) follows the app theme;
+        # "system" hands control back to macOS.
+        hints = app.styleHints()
+        theme = backend.settings.theme
+        if theme == "system":
+            hints.unsetColorScheme()
+        else:
+            hints.setColorScheme(Qt.ColorScheme.Light if theme == "light" else Qt.ColorScheme.Dark)
+
+    apply_color_scheme()
+    backend.settingsChanged.connect(apply_color_scheme)
+    app.styleHints().colorSchemeChanged.connect(lambda *_: backend.on_system_scheme_changed())
 
     engine = QQmlApplicationEngine()
     engine.addImageProvider("icon", IconProvider())
+    engine.addImageProvider("snapshot", Backend.snapshots)
     engine.rootContext().setContextProperty("backend", backend)
     engine.load(QUrl.fromLocalFile(str(resource_root() / "ui" / "main.qml")))
     if not engine.rootObjects():

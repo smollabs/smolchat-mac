@@ -16,7 +16,8 @@ Built with Python, PySide6 and QML, with inference through llama.cpp (Metal on A
 - **Automatic model selection**: each message goes to the best *installed* model, based on task (text or image), request complexity, model size, free memory, which model is already loaded, and your Speed/Balanced/Quality preference. Nothing is ever downloaded automatically.
 - **Manual selection** per conversation. It is saved with the chat, and you can switch back to Auto at any time.
 - **Vision**: SmolVLM and SmolVLM2 models answer questions about attached images (paperclip button or drag and drop).
-- Local SQLite history, JSON settings, dark theme by default, plus a light theme.
+- Native full-height macOS window with smooth animations. Dark (default), Light or **System** theme (follows macOS appearance), six accent colours, and a crossfade whenever the theme changes. There's a quick sun/moon toggle in the sidebar.
+- Local SQLite history and JSON settings.
 
 ## Supported models
 
@@ -62,6 +63,7 @@ On first launch no models are installed. Click **Download** on the recommended m
 | ⌘⇧M | Model Library |
 | ⌘, | Settings |
 | ⌘\ | Toggle sidebar |
+| ⇧⌘L | Switch light / dark |
 | ⌘. | Stop generating |
 | ↩ / ⇧↩ | Send / new line |
 
@@ -92,6 +94,9 @@ app/formatting.py     markdown/code/<think> segmentation + code highlighting
 app/backend.py        the only Qt↔Python bridge: list models, slots, signals, worker threads
 ui/*.qml              QML interface (main, splash, sidebar, chat, model_library, settings, components, styles/theme)
 resources/models.json verified model registry
+resources/assets/logo brand artwork: logo tiles (157–1254 px, app/Dock icon, sidebar) and the
+                      transparent mascot shown in 3D on the splash and home screen
+scripts/prepare_brand_assets.py  derives UI-ready assets (e.g. smollabs_mascot_clean.png) from the originals
 ```
 
 - The UI never blocks. Startup scanning, downloads, model loading and generation run on worker threads and report back through Qt signals, which are delivered on the UI thread. Tokens are batched about every 40 ms.
@@ -122,7 +127,7 @@ Development aids: `SMOLCHAT_SCREENSHOT=out.png` saves a capture of the window an
 scripts/build_macos.sh      # → dist/SmolChat.app (arm64), weights are not bundled
 ```
 
-The script generates the `.icns` icon, then runs PyInstaller with `packaging/SmolChat.spec`. For distribution, sign it with a Developer ID (`codesign --options runtime`) and notarize it with `xcrun notarytool`.
+The script builds the `.icns` app icon from `resources/assets/logo/logo-1254.png`, then runs PyInstaller with `packaging/SmolChat.spec`. For distribution, sign it with a Developer ID (`codesign --options runtime`) and notarize it with `xcrun notarytool`.
 
 ## Privacy
 

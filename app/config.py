@@ -98,7 +98,8 @@ class AppPaths:
 class Settings:
     """User-configurable preferences persisted as JSON."""
 
-    theme: str = "dark"  # "dark" | "light"
+    theme: str = "dark"  # "dark" | "light" | "system" (follow macOS appearance)
+    accent: str = "violet"  # blue | violet | green | orange | pink | graphite
     # Router bias: "speed" favours small models, "quality" favours large ones.
     routing_preference: str = "balanced"
     default_model_id: str = ""  # model used for manual mode in new chats

@@ -17,11 +17,7 @@ Popup {
     property string filter: "all"  // all | recommended | downloaded | chat | vision | document | retrieval
 
     Overlay.modal: Rectangle { color: Theme.overlay }
-    background: Rectangle {
-        color: Theme.popup
-        radius: Theme.radiusLg + 2
-        border.color: Theme.border
-    }
+    background: C.Glass { radius: 20; fill: Theme.popup }
     enter: Transition {
         NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.fast }
         NumberAnimation { property: "scale"; from: 0.98; to: 1; duration: Theme.normal; easing.type: Easing.OutCubic }
@@ -191,7 +187,8 @@ Popup {
                     anchors.leftMargin: 10
                     anchors.rightMargin: 10
                     radius: Theme.radiusMd
-                    color: rowHover.hovered ? (Theme.dark ? "#2c2c2c" : "#f7f7f7") : "transparent"
+                    color: rowHover.hovered ? Theme.hover : "transparent"
+                    Behavior on color { ColorAnimation { duration: Theme.fast } }
                 }
                 HoverHandler { id: rowHover }
 

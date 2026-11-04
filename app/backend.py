@@ -183,6 +183,20 @@ class IconProvider(QQuickImageProvider):
         return image
 
 
+class SnapshotProvider(QQuickImageProvider):
+    """Serves the most recent window snapshot (used for theme crossfades)."""
+
+    def __init__(self) -> None:
+        super().__init__(QQuickImageProvider.ImageType.Image)
+        self.image = QImage()
+
+    def requestImage(self, image_id: str, size: QSize, requested: QSize) -> QImage:  # noqa: N802
+        if size is not None:
+            size.setWidth(self.image.width())
+            size.setHeight(self.image.height())
+        return self.image
+
+
 # --------------------------------------------------------------------- helpers
 
 
@@ -1219,12 +1233,26 @@ class Backend(QObject):
 
     # ============================================================== settings
 
+    def is_dark(self) -> bool:
+        if self.settings.theme == "system":
+            return QGuiApplication.styleHints().colorScheme() != Qt.ColorScheme.Light
+        return self.settings.theme != "light"
+
     def _palette(self) -> dict[str, str]:
-        return LIGHT_SYNTAX if self.settings.theme == "light" else DARK_SYNTAX
+        return DARK_SYNTAX if self.is_dark() else LIGHT_SYNTAX
+
+    def on_system_scheme_changed(self) -> None:
+        """macOS appearance changed; re-highlight code if we follow the system."""
+        if self.settings.theme == "system" and self._conversation:
+            self._load_messages()
 
     @Property(str, notify=settingsChanged)
     def theme(self) -> str:
         return self.settings.theme
+
+    @Property(str, notify=settingsChanged)
+    def accent(self) -> str:
+        return self.settings.accent
 
     @Property(str, notify=settingsChanged)
     def routingPreference(self) -> str:  # noqa: N802
@@ -1278,6 +1306,19 @@ class Backend(QObject):
             self.refresh_library()
 
     # ============================================================== utilities
+
+    snapshots = SnapshotProvider()
+    _snapshot_serial = 0
+
+    @Slot(QObject, result=str)
+    def snapshotWindow(self, window: QObject) -> str:  # noqa: N802
+        """Capture the whole window (including popups) for a crossfade."""
+        grab = getattr(window, "grabWindow", None)
+        if grab is None:
+            return ""
+        self.snapshots.image = grab()
+        Backend._snapshot_serial += 1
+        return f"image://snapshot/{Backend._snapshot_serial}"
 
     @Slot(str)
     def copyText(self, text: str) -> None:  # noqa: N802
