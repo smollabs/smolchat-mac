@@ -1,0 +1,6 @@
+# Runtime
+PySide6-Essentials>=6.8      # Qt 6 / QML desktop UI (Essentials includes QtQuick, Controls, Dialogs, Svg)
+llama-cpp-python>=0.3.16     # llama.cpp inference (build with CMAKE_ARGS="-DGGML_METAL=on" on Apple Silicon)
+
+# Development
+pytest>=8
