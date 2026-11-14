@@ -6,6 +6,34 @@ A lightweight Mac AI chat application that runs small language models directly o
 
 Built with Python, PySide6 and QML, with inference through llama.cpp (Metal on Apple Silicon).
 
+**Contents:** [Why SmolChat](#why-smolchat) · [Tech stack](#tech-stack) · [Features](#features) · [Getting started](#getting-started) · [Contributing](#contributing) · [Architecture](#architecture) · [Tests](#tests)
+
+## Why SmolChat
+
+Most AI chat apps send every prompt to a server. That costs money, needs a connection, and means your conversations leave your machine. Large local models avoid that, but they need a powerful computer and a lot of setup.
+
+SmolChat sits in between. The [Smol models](https://huggingface.co/HuggingFaceTB) from Hugging Face are small enough (135M to 3B parameters) to run on an everyday Mac, including 8 GB machines. SmolChat makes them easy to use:
+
+- **Private by design**: chats, prompts and images never leave the Mac, and there is no telemetry.
+- **Works offline**: after a model is downloaded, no network is needed.
+- **No setup knowledge needed**: the app checks your hardware, recommends a model that will run well, and refuses ones that would slow your Mac down.
+- **Free to run**: no API keys, accounts or usage limits.
+
+It is also a readable, tested reference for building a native desktop app around local LLM inference.
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Language | Python 3.10–3.12 |
+| Desktop UI | [PySide6](https://doc.qt.io/qtforpython-6/) (Qt 6) with QML / Qt Quick |
+| Inference | [llama.cpp](https://github.com/ggml-org/llama.cpp) through [llama-cpp-python](https://github.com/abetlen/llama-cpp-python), Metal GPU on Apple Silicon |
+| Vision | llama.cpp's libmtmd multimodal library (SmolVLM / SmolVLM2) |
+| Models | GGUF files from Hugging Face, pinned in `resources/models.json` |
+| Storage | SQLite (chat history) and JSON (settings) |
+| Tests | pytest |
+| Packaging | PyInstaller, `codesign`, `notarytool` |
+
 ## Features
 
 - Splash screen, then a ChatGPT-style window: sidebar with date-grouped history, search, rename and delete; markdown messages; highlighted code blocks with copy; regenerate; streaming with a stop button.
@@ -45,14 +73,25 @@ The repositories, revisions, file sizes and SHA-256 hashes in `resources/models.
 Requirements: macOS 13 or later, Apple Silicon recommended (Intel works on CPU), Python 3.10–3.12, and Xcode Command Line Tools to build llama.cpp.
 
 ```bash
+# 1. Get the code
+git clone https://github.com/smollabs/smolchat-mac.git
+cd smolchat-mac
+
+# 2. Create a virtual environment
 python3.12 -m venv .venv
 source .venv/bin/activate
+
+# 3. Install dependencies
 pip install PySide6-Essentials pytest
 CMAKE_ARGS="-DGGML_METAL=on" pip install llama-cpp-python   # compiles llama.cpp with Metal
+
+# 4. Run the app
 python main.py
 ```
 
-On first launch no models are installed. Click **Download** on the recommended model, or open the **Model Library** (⌘⇧M), then start chatting.
+On first launch no models are installed. Click **Download** on the recommended model, or open the **Model Library** (⌘⇧M), then start chatting. SmolLM2 360M Instruct (about 386 MB) is a quick first download.
+
+To keep development data separate from a real install, run with `SMOLCHAT_HOME="$PWD/.smolchat-dev" python main.py`.
 
 ### Keyboard shortcuts
 
@@ -80,6 +119,41 @@ On first launch no models are installed. Click **Download** on the recommended m
 | Logs | `~/Library/Logs/SmolWorks/SmolChat/smolchat.log` |
 
 Set `SMOLCHAT_HOME=/some/dir` to put all of these under a single directory, which is useful for development.
+
+## Contributing
+
+Contributions are welcome, whether it's your first open-source pull request or your fiftieth.
+
+### Where to start
+
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules (no new network calls, nothing downloaded automatically, the UI never blocks), code style and the pull request checklist.
+2. Set up the project with the steps in [Getting started](#getting-started) and make sure `pytest` passes.
+3. Skim the [Architecture](#architecture) section. Most logic lives in Qt-free modules in `app/`, which are easy to read and test without running the UI.
+4. Pick an issue, comment that you'd like to work on it, then open a pull request that references it (for example `Fixes #12`).
+
+Good first places to look in the code:
+
+| If you like… | Look at |
+|---|---|
+| Python logic and tests | `app/model_router.py`, `app/formatting.py`, `app/database.py`, `tests/` |
+| Desktop UI | `ui/*.qml` and `ui/styles/theme.qml` |
+| Inference and performance | `app/inference.py`, `app/backend.py` |
+| Downloads and the model registry | `app/model_manager.py`, `resources/models.json` |
+
+### Finding an issue
+
+All open work is tracked in [GitHub Issues](https://github.com/smollabs/smolchat-mac/issues). Issues are labelled by difficulty:
+
+| Label | Meaning |
+|---|---|
+| [`good first issue`](https://github.com/smollabs/smolchat-mac/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) | Small and well scoped, a good way to get to know the codebase |
+| [`level 1`](https://github.com/smollabs/smolchat-mac/issues?q=is%3Aissue+is%3Aopen+label%3A%22level+1%22) | Beginner: a focused fix or a set of tests |
+| [`level 2`](https://github.com/smollabs/smolchat-mac/issues?q=is%3Aissue+is%3Aopen+label%3A%22level+2%22) | Intermediate: touches several functions or needs some design |
+| [`level 3`](https://github.com/smollabs/smolchat-mac/issues?q=is%3Aissue+is%3Aopen+label%3A%22level+3%22) | Advanced: larger changes across Python and QML |
+
+Issues for the WOCS program carry the [`wocs`](https://github.com/smollabs/smolchat-mac/issues?q=is%3Aissue+is%3Aopen+label%3Awocs) label. You can also filter by area, for example [`bug`](https://github.com/smollabs/smolchat-mac/issues?q=is%3Aissue+is%3Aopen+label%3Abug), [`testing`](https://github.com/smollabs/smolchat-mac/issues?q=is%3Aissue+is%3Aopen+label%3Atesting), [`performance`](https://github.com/smollabs/smolchat-mac/issues?q=is%3Aissue+is%3Aopen+label%3Aperformance) or [`component:desktop`](https://github.com/smollabs/smolchat-mac/issues?q=is%3Aissue+is%3Aopen+label%3Acomponent%3Adesktop).
+
+Found a bug or have an idea that isn't listed? [Open a new issue](https://github.com/smollabs/smolchat-mac/issues/new) with your macOS version, chip, memory, the model in use and steps to reproduce.
 
 ## Architecture
 
@@ -132,3 +206,7 @@ The script builds the `.icns` app icon from `resources/assets/logo/logo-1254.png
 ## Privacy
 
 SmolChat makes network requests only to `huggingface.co` (and its CDN) when you download a model. Chats, prompts and attachments never leave the Mac. There is no telemetry.
+
+## License
+
+SmolChat is licensed under the [Apache License 2.0](LICENSE). Each model has its own licence, which is shown in the Model Library.
