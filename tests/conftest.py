@@ -14,3 +14,13 @@ def paths(tmp_path: Path) -> AppPaths:
     p = AppPaths(data=tmp_path / "data", cache=tmp_path / "cache", logs=tmp_path / "logs")
     p.ensure()
     return p
+
+
+@pytest.fixture(scope="session")
+def qapp():
+    from PySide6.QtGui import QGuiApplication
+
+    app = QGuiApplication.instance()
+    if app is None:
+        app = QGuiApplication(sys.argv[:1])
+    return app
