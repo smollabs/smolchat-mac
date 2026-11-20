@@ -52,6 +52,8 @@ Item {
                 visible: !root.sidebarVisible
                 iconName: "sidebar"
                 implicitWidth: 34
+                accessibleName: "Show sidebar"
+                accessibleDescription: "Expand sidebar navigation (Command+\\)"
                 onClicked: root.toggleSidebar()
                 ToolTip.visible: hovered; ToolTip.delay: 600; ToolTip.text: "Show sidebar  ⌘\\"
             }
@@ -59,6 +61,8 @@ Item {
                 visible: !root.sidebarVisible
                 iconName: "plus"
                 implicitWidth: 34
+                accessibleName: "New chat"
+                accessibleDescription: "Start a new conversation (Command+N)"
                 onClicked: backend.newChat()
                 ToolTip.visible: hovered; ToolTip.delay: 600; ToolTip.text: "New chat  ⌘N"
             }
@@ -69,6 +73,8 @@ Item {
                 iconName: backend.modelMode === "auto" ? "sparkles" : "chip"
                 accent: modelPicker.opened
                 text: backend.modelMode === "auto" ? "Auto" : backend.selectedModelLabel
+                accessibleName: "Model selector: " + (backend.modelMode === "auto" ? "Auto" : backend.selectedModelLabel)
+                accessibleDescription: "Choose between automatic routing or a specific downloaded model"
                 trailingIcon: "chevron-down"
                 onClicked: modelPicker.opened ? modelPicker.close() : modelPicker.open()
             }
@@ -79,6 +85,7 @@ Item {
             C.Pill {
                 visible: backend.loadedModelId !== ""
                 text: "On-device"
+                accessibleName: "On-device model status: " + (backend.runtimeState === "generating" ? "Generating response" : "Loaded in memory")
                 enabled: false
                 opacity: 1
                 contentItem: Row {
@@ -190,9 +197,19 @@ Item {
         Layout.fillWidth: true
         implicitHeight: 50
         hoverEnabled: true
+        focusPolicy: Qt.TabFocus
+
+        Accessible.role: Accessible.RadioButton
+        Accessible.name: title + (subtitle ? ", " + subtitle : "")
+        Accessible.checked: selected
+        Accessible.focusable: true
+        Accessible.focused: visualFocus
+
         background: Rectangle {
             radius: 11
             color: pr.selected ? Theme.brandSoft : pr.hovered ? Theme.hover : "transparent"
+            border.width: pr.visualFocus ? 2 : 0
+            border.color: Theme.brand
             Behavior on color { ColorAnimation { duration: Theme.fast } }
         }
         contentItem: RowLayout {
@@ -418,6 +435,13 @@ Item {
         implicitHeight: 34
         implicitWidth: gbRow.implicitWidth + 30
         hoverEnabled: true
+        focusPolicy: Qt.TabFocus
+
+        Accessible.role: Accessible.Button
+        Accessible.name: text
+        Accessible.focusable: true
+        Accessible.focused: visualFocus
+
         scale: down ? 0.96 : 1
         Behavior on scale { NumberAnimation { duration: 90 } }
         background: Item {
@@ -426,8 +450,8 @@ Item {
                 anchors.margins: -4
                 radius: height / 2
                 color: "transparent"
-                border.width: 4
-                border.color: Qt.rgba(Theme.brand.r, Theme.brand.g, Theme.brand.b, gb.enabled && gb.hovered ? 0.25 : 0.12)
+                border.width: gb.visualFocus ? 3 : 4
+                border.color: gb.visualFocus ? Theme.accent : Qt.rgba(Theme.brand.r, Theme.brand.g, Theme.brand.b, gb.enabled && gb.hovered ? 0.25 : 0.12)
                 Behavior on border.color { ColorAnimation { duration: Theme.fast } }
             }
             Rectangle {
@@ -691,6 +715,8 @@ Item {
                             iconSize: 16
                             implicitWidth: 28; implicitHeight: 28
                             tip: "Regenerate response"
+                            accessibleName: "Regenerate response"
+                            accessibleDescription: "Request another response for the latest message"
                             onClicked: backend.regenerate()
                         }
                         Text {
@@ -716,6 +742,8 @@ Item {
         Behavior on opacity { NumberAnimation { duration: Theme.normal } }
         iconName: "chevron-down"
         implicitWidth: 34
+        accessibleName: "Scroll to newest message"
+        accessibleDescription: "Jump to the bottom of the conversation"
         onClicked: { messages.stickToBottom = true; messages.positionViewAtEnd() }
     }
 
@@ -729,6 +757,8 @@ Item {
         implicitWidth: 28
         implicitHeight: 28
         tip: copied ? "Copied" : "Copy"
+        accessibleName: copied ? "Copied to clipboard" : "Copy message text"
+        accessibleDescription: "Copies the message content to your clipboard"
         onClicked: { backend.copyText(textToCopy); copied = true; resetTimer.restart() }
         Timer { id: resetTimer; interval: 1500; onTriggered: cb.copied = false }
     }
@@ -783,9 +813,22 @@ Item {
                     implicitHeight: 26
                     implicitWidth: copyRow.implicitWidth + 16
                     hoverEnabled: true
+                    focusPolicy: Qt.TabFocus
+
+                    Accessible.role: Accessible.Button
+                    Accessible.name: copied ? "Copied code" : "Copy " + (seg.lang || "code")
+                    Accessible.description: "Copy code block to clipboard"
+                    Accessible.focusable: true
+                    Accessible.focused: visualFocus
+
                     onClicked: { backend.copyText(seg.text); copied = true; copyReset.restart() }
                     Timer { id: copyReset; interval: 1500; onTriggered: copyCode.copied = false }
-                    background: Rectangle { radius: 13; color: copyCode.hovered ? Theme.hover : "transparent" }
+                    background: Rectangle {
+                        radius: 13
+                        color: copyCode.hovered ? Theme.hover : "transparent"
+                        border.width: copyCode.visualFocus ? 2 : 0
+                        border.color: Theme.brand
+                    }
                     contentItem: Item {
                         Row {
                             id: copyRow
@@ -828,10 +871,23 @@ Item {
             AbstractButton {
                 id: thinkToggle
                 hoverEnabled: true
+                focusPolicy: Qt.TabFocus
                 implicitHeight: 26
                 implicitWidth: thinkRow.implicitWidth + 8
+
+                Accessible.role: Accessible.Button
+                Accessible.name: think.expanded ? "Collapse thought process" : "Expand thought process"
+                Accessible.description: "Toggle visibility of model reasoning"
+                Accessible.focusable: true
+                Accessible.focused: visualFocus
+
                 onClicked: think.expanded = !think.expanded
-                background: null
+                background: Rectangle {
+                    radius: 6
+                    color: thinkToggle.visualFocus ? Theme.hoverStrong : "transparent"
+                    border.width: thinkToggle.visualFocus ? 1 : 0
+                    border.color: Theme.brand
+                }
                 contentItem: Row {
                     id: thinkRow
                     spacing: 6
@@ -1004,7 +1060,15 @@ Item {
                                     anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 2
                                     implicitWidth: 20; implicitHeight: 20
                                     iconName: "close"; iconSize: 12; iconColor: "#ffffff"
-                                    background: Rectangle { radius: 10; color: "#aa000000" }
+                                    tip: "Remove image"
+                                    accessibleName: "Remove image attachment " + (thumb.index + 1)
+                                    accessibleDescription: "Remove this image from attachments"
+                                    background: Rectangle {
+                                        radius: 10
+                                        color: "#aa000000"
+                                        border.width: visualFocus ? 2 : 0
+                                        border.color: Theme.brand
+                                    }
                                     onClicked: {
                                         const list = composerArea.attachments.slice()
                                         list.splice(thumb.index, 1)
@@ -1033,6 +1097,14 @@ Item {
                             TextArea {
                                 id: composer
                                 enabled: composerArea.inputEnabled
+                                focusPolicy: Qt.StrongFocus
+
+                                Accessible.role: Accessible.EditableText
+                                Accessible.name: "Message input"
+                                Accessible.description: "Compose a message to send to the model. Press Return to send, Shift+Return for a new line."
+                                Accessible.focusable: true
+                                Accessible.focused: activeFocus
+
                                 placeholderText: !backend.ready ? "Starting…"
                                     : !backend.hasInstalledModels ? "Download a model to start chatting"
                                     : !backend.runtimeAvailable ? "The local runtime could not be loaded"
@@ -1101,8 +1173,16 @@ Item {
                             implicitWidth: 36
                             implicitHeight: 36
                             hoverEnabled: true
+                            focusPolicy: Qt.TabFocus
                             readonly property bool stopMode: root.generatingHere
                             enabled: stopMode || composerArea.canSend
+
+                            Accessible.role: Accessible.Button
+                            Accessible.name: stopMode ? "Stop generating" : "Send message"
+                            Accessible.description: stopMode ? "Stop generating model response (Command+.)" : "Send message to the model (Return)"
+                            Accessible.focusable: true
+                            Accessible.focused: visualFocus
+
                             onClicked: stopMode ? backend.stopGeneration() : composerArea.send()
                             ToolTip.visible: hovered
                             ToolTip.delay: 600
@@ -1115,8 +1195,8 @@ Item {
                                     anchors.centerIn: parent
                                     width: parent.width + 12; height: width; radius: width / 2
                                     color: "transparent"
-                                    border.width: 6
-                                    border.color: Qt.rgba(Theme.brand.r, Theme.brand.g, Theme.brand.b,
+                                    border.width: sendBtn.visualFocus ? 3 : 6
+                                    border.color: sendBtn.visualFocus ? Theme.accent : Qt.rgba(Theme.brand.r, Theme.brand.g, Theme.brand.b,
                                                           sendBtn.enabled && !sendBtn.stopMode ? (sendBtn.hovered ? 0.30 : 0.18) : 0)
                                     Behavior on border.color { ColorAnimation { duration: Theme.normal } }
                                 }
@@ -1178,11 +1258,21 @@ Item {
         implicitHeight: 30
         implicitWidth: tbRow.implicitWidth + 18
         hoverEnabled: true
+        focusPolicy: Qt.TabFocus
+
+        Accessible.role: Accessible.Button
+        Accessible.name: text
+        Accessible.description: "Attach images to your message"
+        Accessible.focusable: true
+        Accessible.focused: visualFocus
+
         scale: down ? 0.96 : 1
         Behavior on scale { NumberAnimation { duration: 90 } }
         background: Rectangle {
             radius: 15
             color: tb.hovered ? Theme.hover : "transparent"
+            border.width: tb.visualFocus ? 2 : 0
+            border.color: Theme.brand
             Behavior on color { ColorAnimation { duration: Theme.fast } }
         }
         contentItem: Item {

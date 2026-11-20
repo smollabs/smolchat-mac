@@ -14,6 +14,9 @@ Popup {
     padding: 0
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
+    Accessible.role: Accessible.Dialog
+    Accessible.name: "Model Library"
+
     property string filter: "all"  // all | recommended | downloaded | chat | vision | document | retrieval
 
     Overlay.modal: Rectangle { color: Theme.overlay }
@@ -53,7 +56,13 @@ Popup {
                     Layout.fillWidth: true
                 }
             }
-            C.IconButton { iconName: "close"; tip: "Close"; onClicked: library.close(); Layout.alignment: Qt.AlignTop }
+            C.IconButton {
+                iconName: "close"
+                tip: "Close"
+                accessibleName: "Close Model Library"
+                onClicked: library.close()
+                Layout.alignment: Qt.AlignTop
+            }
         }
 
         // Hardware + runtime line
@@ -94,6 +103,10 @@ Popup {
             Layout.topMargin: 14
             Layout.bottomMargin: 10
             spacing: 4
+
+            Accessible.role: Accessible.PageTabList
+            Accessible.name: "Model category filter"
+
             Repeater {
                 model: [
                     { key: "all", label: "All" },
@@ -111,10 +124,20 @@ Popup {
                     implicitHeight: 30
                     implicitWidth: tabText.implicitWidth + 24
                     hoverEnabled: true
+                    focusPolicy: Qt.TabFocus
+
+                    Accessible.role: Accessible.PageTab
+                    Accessible.name: modelData.label
+                    Accessible.selected: active
+                    Accessible.focusable: true
+                    Accessible.focused: visualFocus
+
                     onClicked: library.filter = modelData.key
                     background: Rectangle {
                         radius: 15
                         color: tab.active ? Theme.hoverStrong : tab.hovered ? Theme.hover : "transparent"
+                        border.width: tab.visualFocus ? 2 : 0
+                        border.color: Theme.brand
                     }
                     contentItem: Text {
                         id: tabText
@@ -140,6 +163,9 @@ Popup {
             model: backend.libraryModel
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded; width: 10 }
+
+            Accessible.role: Accessible.List
+            Accessible.name: "Models list"
 
             delegate: Item {
                 id: row
@@ -181,6 +207,22 @@ Popup {
                 width: ListView.view.width
                 height: shown ? content.implicitHeight + 32 : 0
                 visible: shown
+
+                Accessible.role: Accessible.ListItem
+                Accessible.name: row.name + (row.installed ? ", Installed" : ", " + row.compatLabel)
+                Accessible.description: row.description + ". " + (row.downloading ? "Downloading: " + (row.progressText || Math.round(row.progress * 100) + "%") : "")
+
+                // Announce meaningful state changes (e.g. downloaded, failed)
+                onInstalledChanged: {
+                    if (row.installed) {
+                        Accessible.announce(row.name + " finished downloading and is ready to use", Accessible.Polite)
+                    }
+                }
+                onErrorChanged: {
+                    if (row.error) {
+                        Accessible.announce(row.name + " error: " + row.error, Accessible.Assertive)
+                    }
+                }
 
                 Rectangle {
                     anchors.fill: parent
@@ -302,6 +344,7 @@ Popup {
                                 Layout.fillWidth: true
                                 value: row.progress
                                 indeterminate: row.downloading && row.progress === 0 && row.progressText === ""
+                                accessibleName: row.name + " download progress"
                             }
                             Text {
                                 text: row.downloading ? (row.progressText || "Connecting to Hugging Face…")
@@ -356,6 +399,8 @@ Popup {
                             compact: true
                             iconName: row.canDownload ? "download" : "alert"
                             text: !row.canDownload ? "Not recommended" : row.partial ? "Resume" : "Download"
+                            accessibleName: (!row.canDownload ? "Not recommended: " : row.partial ? "Resume download " : "Download ") + row.name
+                            accessibleDescription: row.compatReason || ("Download " + row.sizeText + " model files")
                             Layout.alignment: Qt.AlignRight
                             onClicked: backend.downloadModel(row.id)
                             ToolTip.visible: hovered && !row.canDownload
@@ -366,6 +411,8 @@ Popup {
                             kind: "ghost"
                             compact: true
                             text: "Discard"
+                            accessibleName: "Discard download for " + row.name
+                            accessibleDescription: "Delete partially downloaded model files"
                             Layout.alignment: Qt.AlignRight
                             onClicked: backend.discardPartial(row.id)
                         }
@@ -375,6 +422,7 @@ Popup {
                             compact: true
                             text: row.stage === "verifying" ? "Verifying…" : "Cancel"
                             enabled: row.stage !== "verifying"
+                            accessibleName: (row.stage === "verifying" ? "Verifying " : "Cancel download for ") + row.name
                             Layout.alignment: Qt.AlignRight
                             onClicked: backend.cancelDownload(row.id)
                         }
@@ -383,6 +431,8 @@ Popup {
                             kind: "secondary"
                             compact: true
                             text: "Use in this chat"
+                            accessibleName: "Use " + row.name + " in this chat"
+                            accessibleDescription: "Select this model for current conversation"
                             Layout.alignment: Qt.AlignRight
                             onClicked: { backend.selectModel(row.id); library.close() }
                         }
@@ -392,6 +442,8 @@ Popup {
                             compact: true
                             iconName: "trash"
                             text: "Delete"
+                            accessibleName: "Delete " + row.name
+                            accessibleDescription: "Remove model files from this Mac (" + row.sizeText + ")"
                             Layout.alignment: Qt.AlignRight
                             onClicked: {
                                 const blocker = backend.deleteBlocker(row.id)

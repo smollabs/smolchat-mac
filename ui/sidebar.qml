@@ -36,7 +36,13 @@ Rectangle {
                 anchors.rightMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 2
-                C.IconButton { iconName: "sidebar"; tip: "Hide sidebar  ⌘\\"; onClicked: root.collapse() }
+                C.IconButton {
+                    iconName: "sidebar"
+                    tip: "Hide sidebar  ⌘\\"
+                    accessibleName: "Hide sidebar"
+                    accessibleDescription: "Collapse sidebar navigation (Command+\\)"
+                    onClicked: root.collapse()
+                }
             }
         }
 
@@ -74,12 +80,21 @@ Rectangle {
             Layout.topMargin: 14
             implicitHeight: 40
             hoverEnabled: true
+            focusPolicy: Qt.TabFocus
+
+            Accessible.role: Accessible.Button
+            Accessible.name: "New chat"
+            Accessible.description: "Start a new conversation (Command+N)"
+            Accessible.focusable: true
+            Accessible.focused: visualFocus
+
             onClicked: backend.newChat()
             scale: down ? 0.98 : 1
             Behavior on scale { NumberAnimation { duration: 90 } }
             background: C.Glass {
                 radius: 12
                 hovered: newChatBtn.hovered
+                active: newChatBtn.visualFocus
             }
             contentItem: RowLayout {
                 spacing: 10
@@ -102,6 +117,8 @@ Rectangle {
             Layout.topMargin: 6
             iconName: "search"
             placeholderText: "Search chats"
+            accessibleName: "Search chats"
+            accessibleDescription: "Filter conversations by keyword"
             onTextChanged: searchDebounce.restart()
             Keys.onEscapePressed: { text = ""; focus = false }
             Timer { id: searchDebounce; interval: 180; onTriggered: backend.setSearch(search.text) }
@@ -118,6 +135,10 @@ Rectangle {
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded; width: 8 }
             section.property: "section"
+
+            Accessible.role: Accessible.List
+            Accessible.name: "Conversations"
+
             add: Transition {
                 NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.normal }
                 NumberAnimation { property: "x"; from: -12; to: 0; duration: Theme.normal; easing.type: Easing.OutCubic }
@@ -151,12 +172,18 @@ Rectangle {
                 property bool current: backend.currentConversationId === row.id
                 property bool renaming: false
 
+                Accessible.role: Accessible.ListItem
+                Accessible.name: row.title
+                Accessible.selected: row.current
+
                 Rectangle {
                     anchors.fill: parent
                     anchors.leftMargin: 8
                     anchors.rightMargin: 8
                     radius: Theme.radiusMd - 2
                     color: row.current ? Theme.selected : rowMouse.containsMouse || moreBtn.hovered ? Theme.hover : "transparent"
+                    border.width: rowSelectBtn.visualFocus ? 2 : 0
+                    border.color: Theme.brand
                     Behavior on color { ColorAnimation { duration: Theme.fast } }
                     Rectangle {
                         width: 3
@@ -168,6 +195,21 @@ Rectangle {
                         color: Theme.brand
                         Behavior on height { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutBack } }
                     }
+                }
+
+                AbstractButton {
+                    id: rowSelectBtn
+                    anchors.fill: parent
+                    anchors.rightMargin: 36
+                    visible: !row.renaming
+                    focusPolicy: Qt.TabFocus
+                    hoverEnabled: false
+                    Accessible.role: Accessible.Button
+                    Accessible.name: row.title
+                    Accessible.description: "Open conversation " + row.title
+                    Accessible.focusable: true
+                    Accessible.focused: visualFocus
+                    onClicked: backend.openConversation(row.id)
                 }
 
                 MouseArea {
@@ -203,6 +245,8 @@ Rectangle {
                     anchors.topMargin: 2
                     anchors.bottomMargin: 2
                     implicitHeight: 30
+                    accessibleName: "Rename conversation"
+                    accessibleDescription: "Enter new title for conversation"
                     onAccepted: { backend.renameConversation(row.id, text); row.renaming = false }
                     onActiveFocusChanged: if (!activeFocus && row.renaming) { backend.renameConversation(row.id, text); row.renaming = false }
                     Keys.onEscapePressed: row.renaming = false
@@ -210,7 +254,7 @@ Rectangle {
 
                 C.IconButton {
                     id: moreBtn
-                    visible: !row.renaming && (rowMouse.containsMouse || hovered || contextMenu.visible || row.current)
+                    visible: !row.renaming && (rowMouse.containsMouse || hovered || contextMenu.visible || row.current || visualFocus)
                     anchors.right: parent.right
                     anchors.rightMargin: 12
                     anchors.verticalCenter: parent.verticalCenter
@@ -219,6 +263,8 @@ Rectangle {
                     iconName: "more"
                     iconSize: 16
                     tip: "Options"
+                    accessibleName: "Options for " + row.title
+                    accessibleDescription: "Open menu to rename or delete this conversation"
                     onClicked: contextMenu.popup(moreBtn, 0, moreBtn.height)
                 }
 
@@ -285,13 +331,25 @@ Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: 46
                 hoverEnabled: true
+                focusPolicy: Qt.TabFocus
+
+                Accessible.role: Accessible.Button
+                Accessible.name: "Model Library status: " + (backend.runtimeState === "loading" ? backend.statusText : backend.loadedModelName ? backend.loadedModelName : backend.hasInstalledModels ? "Ready" : "No models yet")
+                Accessible.description: (backend.activeDownloads > 0 ? "Downloading " + backend.activeDownloads + " models. " : "") + "Click to open Model Library"
+                Accessible.focusable: true
+                Accessible.focused: visualFocus
+
                 onClicked: root.openLibrary()
                 scale: down ? 0.98 : 1
                 Behavior on scale { NumberAnimation { duration: 90 } }
                 ToolTip.visible: hovered && backend.hardwareSummary !== ""
                 ToolTip.delay: 700
                 ToolTip.text: backend.hardwareSummary
-                background: C.Glass { radius: 12; hovered: statusBtn.hovered }
+                background: C.Glass {
+                    radius: 12
+                    hovered: statusBtn.hovered
+                    active: statusBtn.visualFocus
+                }
                 contentItem: RowLayout {
                     spacing: 10
                     Rectangle {
@@ -336,10 +394,18 @@ Rectangle {
                 id: themeBtn
                 iconName: Theme.dark ? "sun" : "moon"
                 tip: Theme.dark ? "Switch to light  ⇧⌘L" : "Switch to dark  ⇧⌘L"
+                accessibleName: Theme.dark ? "Switch to light theme" : "Switch to dark theme"
+                accessibleDescription: "Toggle application appearance between light and dark (Shift+Command+L)"
                 onClicked: { spin.restart(); root.toggleTheme() }
                 RotationAnimation on rotation { id: spin; running: false; from: -90; to: 0; duration: 420; easing.type: Easing.OutBack }
             }
-            C.IconButton { iconName: "settings"; tip: "Settings  ⌘,"; onClicked: root.openSettings() }
+            C.IconButton {
+                iconName: "settings"
+                tip: "Settings  ⌘,"
+                accessibleName: "Settings"
+                accessibleDescription: "Open application settings dialog (Command+,)"
+                onClicked: root.openSettings()
+            }
         }
     }
 

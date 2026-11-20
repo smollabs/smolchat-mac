@@ -13,6 +13,9 @@ Popup {
     padding: 0
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
+    Accessible.role: Accessible.Dialog
+    Accessible.name: "Settings"
+
     signal openLibrary()
     signal appearanceChange(string key, string value)
 
@@ -53,22 +56,49 @@ Popup {
         id: seg
         property var options: []   // [{ key, label }]
         property string value
+        property string accessibleName: ""
         signal picked(string key)
         spacing: 2
+
+        Accessible.role: Accessible.PageTabList
+        Accessible.name: accessibleName
+
         Repeater {
             model: seg.options
             AbstractButton {
                 id: sb
                 required property var modelData
+                required property int index
                 readonly property bool active: seg.value === modelData.key
                 implicitHeight: 28
                 implicitWidth: sbText.implicitWidth + 22
                 hoverEnabled: true
+                focusPolicy: Qt.TabFocus
+
+                Accessible.role: Accessible.PageTab
+                Accessible.name: modelData.label
+                Accessible.selected: active
+                Accessible.focusable: true
+                Accessible.focused: visualFocus
+
                 onClicked: seg.picked(modelData.key)
+
+                Keys.onLeftPressed: {
+                    if (sb.index > 0) {
+                        seg.picked(seg.options[sb.index - 1].key)
+                    }
+                }
+                Keys.onRightPressed: {
+                    if (sb.index < seg.options.length - 1) {
+                        seg.picked(seg.options[sb.index + 1].key)
+                    }
+                }
+
                 background: Rectangle {
                     radius: 8
                     color: sb.active ? Theme.hoverStrong : sb.hovered ? Theme.hover : "transparent"
-                    border.color: sb.active ? Theme.border : "transparent"
+                    border.width: sb.visualFocus ? 2 : (sb.active ? 1 : 0)
+                    border.color: sb.visualFocus ? Theme.brand : (sb.active ? Theme.border : "transparent")
                 }
                 contentItem: Text {
                     id: sbText
@@ -84,13 +114,27 @@ Popup {
 
     component Toggle: Switch {
         id: sw
+        property string accessibleName: ""
+        property string accessibleDescription: ""
         implicitWidth: 40
         implicitHeight: 24
+        focusPolicy: Qt.TabFocus
+
+        Accessible.role: Accessible.Switch
+        Accessible.name: accessibleName
+        Accessible.description: accessibleDescription
+        Accessible.checkable: true
+        Accessible.checked: checked
+        Accessible.focusable: true
+        Accessible.focused: visualFocus
+
         indicator: Rectangle {
             implicitWidth: 38
             implicitHeight: 22
             radius: 11
             color: sw.checked ? Theme.brand : Theme.hoverStrong
+            border.width: sw.visualFocus ? 2 : 0
+            border.color: sw.checked ? Theme.accent : Theme.brand
             Behavior on color { ColorAnimation { duration: Theme.fast } }
             Rectangle {
                 width: 18; height: 18; radius: 9
@@ -161,7 +205,12 @@ Popup {
             Layout.topMargin: 18
             Layout.bottomMargin: 8
             Text { text: "Settings"; color: Theme.text; font.pixelSize: Theme.fontXl - 2; font.weight: Font.DemiBold; Layout.fillWidth: true }
-            C.IconButton { iconName: "close"; tip: "Close"; onClicked: dlg.close() }
+            C.IconButton {
+                id: closeBtn
+                iconName: "close"
+                tip: "Close settings"
+                onClicked: dlg.close()
+            }
         }
         C.Separator { Layout.fillWidth: true }
 
@@ -194,6 +243,14 @@ Popup {
                             Layout.fillWidth: true
                             implicitHeight: 118
                             hoverEnabled: true
+                            focusPolicy: Qt.TabFocus
+
+                            Accessible.role: Accessible.RadioButton
+                            Accessible.name: modelData.label + " theme"
+                            Accessible.checked: active
+                            Accessible.focusable: true
+                            Accessible.focused: visualFocus
+
                             onClicked: if (!active) dlg.appearanceChange("theme", modelData.key)
                             scale: down ? 0.97 : 1
                             Behavior on scale { NumberAnimation { duration: 90 } }
@@ -205,8 +262,8 @@ Popup {
                                     Layout.preferredHeight: 80
                                     radius: 12
                                     color: "transparent"
-                                    border.width: tc.active ? 2 : 1
-                                    border.color: tc.active ? Theme.brand : tc.hovered ? Theme.textTertiary : Theme.border
+                                    border.width: tc.visualFocus ? 3 : (tc.active ? 2 : 1)
+                                    border.color: tc.visualFocus ? Theme.brand : (tc.active ? Theme.brand : tc.hovered ? Theme.textTertiary : Theme.border)
                                     Behavior on border.color { ColorAnimation { duration: Theme.fast } }
                                     ThemePreview {
                                         anchors.fill: parent
@@ -239,28 +296,36 @@ Popup {
                         Repeater {
                             model: Theme.accentKeys
                             AbstractButton {
-                                id: sw
+                                id: swAccent
                                 required property string modelData
                                 readonly property bool active: backend.accent === modelData
                                 width: 24; height: 24
                                 hoverEnabled: true
+                                focusPolicy: Qt.TabFocus
+
+                                Accessible.role: Accessible.RadioButton
+                                Accessible.name: Theme.accents[modelData].label + " accent"
+                                Accessible.checked: active
+                                Accessible.focusable: true
+                                Accessible.focused: visualFocus
+
                                 onClicked: if (!active) dlg.appearanceChange("accent", modelData)
                                 ToolTip.visible: hovered
                                 ToolTip.delay: 400
                                 ToolTip.text: Theme.accents[modelData].label
                                 background: Rectangle {
                                     radius: 12
-                                    color: Theme.accentColor(sw.modelData, Theme.dark)
-                                    scale: sw.hovered ? 1.12 : 1
+                                    color: Theme.accentColor(swAccent.modelData, Theme.dark)
+                                    scale: swAccent.hovered || swAccent.visualFocus ? 1.12 : 1
                                     Behavior on scale { NumberAnimation { duration: Theme.fast; easing.type: Easing.OutBack } }
                                     Rectangle {
                                         anchors.centerIn: parent
                                         width: 30; height: 30; radius: 15
                                         color: "transparent"
                                         border.width: 2
-                                        border.color: Theme.accentColor(sw.modelData, Theme.dark)
-                                        opacity: sw.active ? 1 : 0
-                                        scale: sw.active ? 1 : 0.7
+                                        border.color: swAccent.visualFocus ? Theme.text : Theme.accentColor(swAccent.modelData, Theme.dark)
+                                        opacity: swAccent.active || swAccent.visualFocus ? 1 : 0
+                                        scale: swAccent.active || swAccent.visualFocus ? 1 : 0.7
                                         Behavior on opacity { NumberAnimation { duration: Theme.fast } }
                                         Behavior on scale { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutBack } }
                                     }
@@ -268,7 +333,7 @@ Popup {
                                         anchors.centerIn: parent
                                         width: 8; height: 8; radius: 4
                                         color: "#ffffff"
-                                        opacity: sw.active ? 1 : 0
+                                        opacity: swAccent.active ? 1 : 0
                                         Behavior on opacity { NumberAnimation { duration: Theme.fast } }
                                     }
                                 }
@@ -282,6 +347,7 @@ Popup {
                     label: "Automatic mode prefers"
                     hint: "How Auto balances response speed against answer quality."
                     Segmented {
+                        accessibleName: "Automatic mode prefers"
                         options: [{ key: "speed", label: "Speed" }, { key: "balanced", label: "Balanced" }, { key: "quality", label: "Quality" }]
                         value: backend.routingPreference
                         onPicked: (k) => backend.setSetting("routing_preference", k)
@@ -290,7 +356,12 @@ Popup {
                 SettingRow {
                     label: "SmolLM3 thinking"
                     hint: "Let SmolLM3 reason step by step before answering. Slower, better on hard problems."
-                    Toggle { checked: backend.enableThinking; onToggled: backend.setSetting("enable_thinking", checked) }
+                    Toggle {
+                        accessibleName: "SmolLM3 thinking"
+                        accessibleDescription: "Let SmolLM3 reason step by step before answering. Slower, better on hard problems."
+                        checked: backend.enableThinking
+                        onToggled: backend.setSetting("enable_thinking", checked)
+                    }
                 }
 
                 SectionTitle { text: "GENERATION" }
@@ -300,12 +371,21 @@ Popup {
                     Slider {
                         id: tempSlider
                         implicitWidth: 180
+                        focusPolicy: Qt.TabFocus
+
+                        Accessible.role: Accessible.Slider
+                        Accessible.name: "Temperature"
+                        Accessible.description: "Value " + backend.temperature.toFixed(1) + ". Lower is more focused, higher is more creative."
+                        Accessible.focusable: true
+                        Accessible.focused: visualFocus
+
                         handle: Rectangle {
                             x: tempSlider.leftPadding + tempSlider.visualPosition * (tempSlider.availableWidth - width)
                             y: tempSlider.topPadding + tempSlider.availableHeight / 2 - height / 2
                             width: 18; height: 18; radius: 9
                             color: "#ffffff"
-                            border.color: Theme.border
+                            border.width: tempSlider.visualFocus ? 2 : 1
+                            border.color: tempSlider.visualFocus ? Theme.brand : Theme.border
                         }
                         background: Rectangle {
                             x: tempSlider.leftPadding
@@ -326,6 +406,7 @@ Popup {
                           ? "Too long for the context window. Replies are limited to half of the window."
                           : ""
                     Segmented {
+                        accessibleName: "Maximum response length"
                         options: [{ key: "512", label: "512" }, { key: "1024", label: "1K" }, { key: "2048", label: "2K" }, { key: "4096", label: "4K" }]
                         value: String(backend.maxTokens)
                         onPicked: (k) => backend.setSetting("max_tokens", parseInt(k))
@@ -335,6 +416,7 @@ Popup {
                     label: "Context window"
                     hint: "Larger windows remember more of the chat but use more memory."
                     Segmented {
+                        accessibleName: "Context window"
                         options: [{ key: "2048", label: "2K" }, { key: "4096", label: "4K" }, { key: "8192", label: "8K" }]
                         value: String(backend.contextLength)
                         onPicked: (k) => backend.setSetting("context_length", parseInt(k))
@@ -343,7 +425,12 @@ Popup {
                 SettingRow {
                     label: "Use Metal GPU acceleration"
                     hint: "Recommended on Apple Silicon. Turn off to run on the CPU only."
-                    Toggle { checked: backend.useGpu; onToggled: backend.setSetting("use_gpu", checked) }
+                    Toggle {
+                        accessibleName: "Use Metal GPU acceleration"
+                        accessibleDescription: "Recommended on Apple Silicon. Turn off to run on the CPU only."
+                        checked: backend.useGpu
+                        onToggled: backend.setSetting("use_gpu", checked)
+                    }
                 }
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -358,7 +445,20 @@ Popup {
                         color: Theme.text
                         font.pixelSize: Theme.fontSm + 1
                         padding: 10
-                        background: Rectangle { radius: Theme.radiusMd; color: "transparent"; border.color: systemPrompt.activeFocus ? Theme.textTertiary : Theme.borderSubtle }
+                        focusPolicy: Qt.StrongFocus
+
+                        Accessible.role: Accessible.EditableText
+                        Accessible.name: "System prompt"
+                        Accessible.description: "System instructions given to models"
+                        Accessible.focusable: true
+                        Accessible.focused: activeFocus
+
+                        background: Rectangle {
+                            radius: Theme.radiusMd
+                            color: "transparent"
+                            border.width: systemPrompt.activeFocus ? 2 : 1
+                            border.color: systemPrompt.activeFocus ? Theme.brand : Theme.borderSubtle
+                        }
                         onEditingFinished: backend.setSetting("system_prompt", text)
                     }
                 }

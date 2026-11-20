@@ -35,15 +35,26 @@ QtObject {
         property color iconColor: Theme.textSecondary
         property string tip
         property bool highlighted: false
+        property string accessibleName: tip
+        property string accessibleDescription: ""
         implicitWidth: 32
         implicitHeight: 32
         hoverEnabled: true
-        focusPolicy: Qt.NoFocus
+        focusPolicy: Qt.TabFocus
+
+        Accessible.role: Accessible.Button
+        Accessible.name: accessibleName
+        Accessible.description: accessibleDescription
+        Accessible.focusable: true
+        Accessible.focused: visualFocus
+
         scale: down ? 0.92 : 1
         Behavior on scale { NumberAnimation { duration: 90 } }
         background: Rectangle {
             radius: Theme.radiusSm + 2
             color: ib.down ? Theme.hoverStrong : (ib.hovered || ib.highlighted) ? Theme.hover : "transparent"
+            border.width: ib.visualFocus ? 2 : 0
+            border.color: Theme.brand
             Behavior on color { ColorAnimation { duration: Theme.fast } }
         }
         contentItem: Item {
@@ -66,9 +77,19 @@ QtObject {
         property string kind: "secondary"
         property string iconName
         property bool compact: false
+        property string accessibleName: text
+        property string accessibleDescription: ""
         implicitHeight: compact ? 28 : 34
         implicitWidth: row.implicitWidth + (compact ? 20 : 28)
         hoverEnabled: true
+        focusPolicy: Qt.TabFocus
+
+        Accessible.role: Accessible.Button
+        Accessible.name: accessibleName
+        Accessible.description: accessibleDescription
+        Accessible.focusable: true
+        Accessible.focused: visualFocus
+
         scale: down ? 0.97 : 1
         Behavior on scale { NumberAnimation { duration: 90 } }
         font.family: Theme.fontFamily
@@ -91,8 +112,8 @@ QtObject {
                 if (btn.kind === "ghost") return btn.hovered ? Theme.hover : "transparent"
                 return btn.hovered ? Theme.hover : "transparent"
             }
-            border.width: btn.kind === "secondary" ? 1 : 0
-            border.color: Theme.border
+            border.width: btn.visualFocus ? 2 : (btn.kind === "secondary" ? 1 : 0)
+            border.color: btn.visualFocus ? (btn.kind === "primary" ? Theme.accent : Theme.brand) : Theme.border
             Behavior on color { ColorAnimation { duration: Theme.fast } }
         }
         contentItem: Item {
@@ -128,6 +149,10 @@ QtObject {
         implicitHeight: 20
         radius: 10
         color: Theme.dark ? Qt.rgba(tint.r, tint.g, tint.b, 0.12) : Qt.rgba(tint.r, tint.g, tint.b, 0.10)
+
+        Accessible.role: Accessible.StaticText
+        Accessible.name: label.text
+
         Text {
             id: label
             anchors.centerIn: parent
@@ -150,6 +175,12 @@ QtObject {
         id: bar
         property real value: 0
         property bool indeterminate: false
+        property string accessibleName: "Progress"
+
+        Accessible.role: Accessible.ProgressBar
+        Accessible.name: accessibleName
+        Accessible.description: indeterminate ? "Loading" : Math.round(value * 100) + "%"
+
         implicitHeight: 6
         radius: height / 2
         color: Theme.hoverStrong
@@ -188,6 +219,8 @@ QtObject {
     component Field: TextField {
         id: field
         property string iconName
+        property string accessibleName: placeholderText
+        property string accessibleDescription: ""
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontMd - 1
         color: Theme.text
@@ -197,9 +230,17 @@ QtObject {
         leftPadding: iconName ? 32 : 10
         rightPadding: 10
         implicitHeight: 34
+        focusPolicy: Qt.StrongFocus
+
+        Accessible.role: Accessible.EditableText
+        Accessible.name: accessibleName
+        Accessible.description: accessibleDescription
+        Accessible.focusable: true
+        Accessible.focused: activeFocus
+
         background: Rectangle {
             radius: Theme.radiusMd
-            border.width: 1
+            border.width: field.activeFocus ? 2 : 1
             color: field.activeFocus ? Theme.surface : "transparent"
             border.color: field.activeFocus ? Theme.brand : Theme.borderSubtle
             Behavior on border.color { ColorAnimation { duration: Theme.fast } }
@@ -307,6 +348,11 @@ QtObject {
         signal extra()
         modal: true
         focus: true
+
+        Accessible.role: Accessible.Dialog
+        Accessible.name: dlg.title
+        Accessible.description: dlg.message
+
         anchors.centerIn: Overlay.overlay
         width: 400
         padding: 22
@@ -344,8 +390,10 @@ QtObject {
                 spacing: 8
                 Item { Layout.fillWidth: true }
                 ActionButton {
+                    id: cancelBtn
                     text: dlg.cancelText
                     kind: "secondary"
+                    focus: true
                     onClicked: dlg.close()
                 }
                 ActionButton {
@@ -362,6 +410,7 @@ QtObject {
                 }
             }
         }
+        onOpened: cancelBtn.forceActiveFocus()
     }
 
     // Three softly pulsing dots used while a model is loading/thinking.
@@ -648,6 +697,9 @@ QtObject {
         height: size
         implicitWidth: size
         implicitHeight: size
+        Accessible.role: Accessible.Graphic
+        Accessible.name: "SmolChat logo"
+        Accessible.ignored: true
         Image {
             anchors.fill: parent
             source: "../resources/assets/logo/logo-157.png"
@@ -718,9 +770,19 @@ QtObject {
         property string trailingIcon
         property bool accent: false
         property int iconSize: 14
+        property string accessibleName: text
+        property string accessibleDescription: ""
         implicitHeight: 32
         implicitWidth: pillRow.implicitWidth + 26
         hoverEnabled: true
+        focusPolicy: Qt.TabFocus
+
+        Accessible.role: Accessible.Button
+        Accessible.name: accessibleName
+        Accessible.description: accessibleDescription
+        Accessible.focusable: true
+        Accessible.focused: visualFocus
+
         scale: down ? 0.96 : 1
         Behavior on scale { NumberAnimation { duration: 90 } }
         font.pixelSize: Theme.fontSm + 1
@@ -728,7 +790,7 @@ QtObject {
         background: Glass {
             radius: pill.height / 2
             hovered: pill.hovered
-            active: pill.accent
+            active: pill.accent || pill.visualFocus
         }
         contentItem: Item {
             implicitWidth: pillRow.implicitWidth
