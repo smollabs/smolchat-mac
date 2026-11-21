@@ -1,5 +1,7 @@
 # SmolChat for macOS
 
+[![CI](https://github.com/smollabs/smolchat-mac/actions/workflows/ci.yml/badge.svg)](https://github.com/smollabs/smolchat-mac/actions/workflows/ci.yml)
+
 A lightweight Mac AI chat application that runs small language models directly on the user's machine. Part of **SmolWorks**.
 
 **Download once, run locally, chat offline.** SmolChat ships with no model weights. You pick models from the built-in Model Library, they download from Hugging Face into your Library folder, and from then on every conversation runs on your Mac with no network, no cloud APIs and no telemetry.

@@ -20,10 +20,10 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Iterable
 
 from .config import APP_NAME, APP_VERSION, AppPaths
 
@@ -103,7 +103,7 @@ class ModelEntry:
         return f"{HF_BASE_URL}/{self.repo}"
 
     @classmethod
-    def from_dict(cls, raw: dict) -> "ModelEntry":
+    def from_dict(cls, raw: dict) -> ModelEntry:
         return cls(
             id=raw["id"],
             name=raw["name"],
@@ -134,7 +134,7 @@ class ModelRegistry:
         self._entries = {e.id: e for e in entries}
 
     @classmethod
-    def load(cls, path: Path) -> "ModelRegistry":
+    def load(cls, path: Path) -> ModelRegistry:
         data = json.loads(path.read_text("utf-8"))
         return cls(ModelEntry.from_dict(m) for m in data["models"])
 
@@ -521,7 +521,12 @@ class ModelDownloader:
         for file in files:
             part = partial_dir / f"{file.filename}.part"
 
-            def report(file_done: int, stage: str = "downloading", force: bool = False) -> None:
+            def report(
+                file_done: int,
+                stage: str = "downloading",
+                force: bool = False,
+                done_before: int = done_before,
+            ) -> None:
                 nonlocal last_emit
                 now = time.monotonic()
                 if force or now - last_emit >= 0.1:

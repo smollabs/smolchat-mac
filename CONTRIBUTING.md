@@ -21,7 +21,7 @@ Thanks for helping improve SmolChat! This guide walks you through everything fro
 
 ```
 Find an issue → Comment to claim it → Get assigned → Fork & clone → Create a branch
-→ Make changes + tests → Run pytest → Push → Open a pull request → Review → Merged 🎉
+→ Make changes + tests → Run pytest & ruff → Push → Open PR → CI passes → Merged 🎉
 ```
 
 In short:
@@ -30,8 +30,9 @@ In short:
 2. **Wait to be assigned** before you start, so two people don't work on the same thing.
 3. **Fork the repository**, make your change on a new branch, and test it.
 4. **Open a pull request** (PR) that links to the issue.
-5. **A maintainer reviews it.** You may be asked for changes. That's normal and part of the process.
-6. Once approved, a maintainer **merges** it.
+5. **CI runs automatically.** All automated checks (linting and tests) must pass before merging.
+6. **A maintainer reviews it.** You may be asked for changes. That's normal and part of the process.
+7. Once approved and CI passes, a maintainer **merges** it.
 
 ## 2. Requirements
 
@@ -178,13 +179,14 @@ Name branches `<type>/<issue-number>-<short-description>`, for example:
 - Add or update tests for any behaviour change (see [Tests](#tests)).
 - For UI changes, run the app and check the affected screens in **both Light and Dark** themes.
 
-### Step 3: Test
+### Step 3: Test and lint
 
 ```bash
+ruff check .
 pytest
 ```
 
-Everything must pass before you open a PR.
+Both must pass before you open a PR.
 
 ### Step 4: Commit
 
@@ -240,6 +242,7 @@ Any effect on privacy, memory use or download size, or anything reviewers should
 
 ### After you open it
 
+- **CI must pass before a PR is merged.** The GitHub Actions workflow automatically runs `ruff check .` and `pytest` across supported Python versions. If any check fails, click **Details** to see the logs, fix the issue locally, and push an update to your branch.
 - **A maintainer will review your PR.** They may leave comments or ask for changes. This is normal, and every contributor gets review feedback.
 - **To make changes**, edit your files on the same branch, commit and push again. The PR updates automatically. Don't open a new PR.
 - **Reply to each review comment** or mark it resolved once handled.
@@ -255,7 +258,9 @@ Any effect on privacy, memory use or download size, or anything reviewers should
 
 - [ ] The PR is linked to an issue you were assigned (`Fixes #…`)
 - [ ] The change is focused on that one issue
+- [ ] `ruff check .` passes with no violations
 - [ ] `pytest` passes
+- [ ] All GitHub Actions CI checks pass
 - [ ] Tests are added or updated for behaviour changes
 - [ ] UI changes are checked in Light and Dark, with screenshots attached
 - [ ] No model weights, build output or personal data are committed

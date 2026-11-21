@@ -76,7 +76,7 @@ class AppPaths:
         return resource_root() / "resources" / "models.json"
 
     @classmethod
-    def default(cls) -> "AppPaths":
+    def default(cls) -> AppPaths:
         override = os.environ.get("SMOLCHAT_HOME")
         if override:
             root = Path(override).expanduser()
@@ -208,7 +208,7 @@ class Settings:
             return default_val
 
     @classmethod
-    def load(cls, path: Path) -> "Settings":
+    def load(cls, path: Path) -> Settings:
         try:
             raw = json.loads(path.read_text("utf-8"))
         except FileNotFoundError:
@@ -264,7 +264,7 @@ class HardwareInfo:
         return self.total_ram_bytes / 1024**3
 
     @classmethod
-    def detect(cls) -> "HardwareInfo":
+    def detect(cls) -> HardwareInfo:
         arch = platform.machine()
         is_mac = sys.platform == "darwin"
         chip = _sysctl("machdep.cpu.brand_string") if is_mac else platform.processor()

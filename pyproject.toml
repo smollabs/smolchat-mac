@@ -11,7 +11,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = [
+    "pytest>=8",
+    "ruff>=0.4",
+]
 package = ["pyinstaller>=6.10"]
 
 [tool.pytest.ini_options]
@@ -19,3 +22,11 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+extend-select = ["N802", "E402", "BLE001"]
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/inference.py" = ["BLE001", "S110"]
+"tests/*" = ["RUF012", "RUF059"]

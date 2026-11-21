@@ -17,8 +17,10 @@ from .model_manager import ModelEntry
 _HEAVY_PATTERNS = [
     r"\b(explain|why|how does|how do|analy[sz]e|compare|contrast|evaluate|reason|prove|derive)\b",
     r"\b(step[- ]by[- ]step|in detail|detailed|thorough|comprehensive|pros and cons)\b",
-    r"\b(code|function|class|bug|debug|refactor|algorithm|regex|sql|python|javascript|"
-    r"typescript|rust|swift|java|c\+\+|compile|stack ?trace|exception)\b",
+    (
+        r"\b(code|function|class|bug|debug|refactor|algorithm|regex|sql|python|javascript|"
+        r"typescript|rust|swift|java|c\+\+|compile|stack ?trace|exception)\b"
+    ),
     r"\b(math|equation|integral|derivative|calculate|solve|probability|statistics|proof)\b",
     r"\b(essay|article|report|story|poem|letter|summari[sz]e|translate|outline|plan)\b",
 ]
@@ -29,7 +31,7 @@ _LIGHT_PATTERNS = [
 _DOCUMENT_PATTERNS = [
     r"\b(document|page|pdf|invoice|receipt|form|table|scan|scanned|ocr|transcribe|extract text)\b",
 ]
-_CODE_FENCE = re.compile(r"```|^\s{4,}\S", re.M)
+_CODE_FENCE = re.compile(r"```|^\s{4,}\S", re.MULTILINE)
 
 
 @dataclass(frozen=True)

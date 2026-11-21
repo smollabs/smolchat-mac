@@ -16,9 +16,9 @@ import os
 import threading
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 from .config import available_memory_bytes
 
@@ -122,7 +122,7 @@ class InferenceEngine(ABC):
 
 def llama_cpp_available() -> tuple[bool, str]:
     try:
-        import llama_cpp  # noqa: F401
+        import llama_cpp
     except Exception as exc:  # ImportError or a broken native library
         return False, str(exc)
     return True, getattr(llama_cpp, "__version__", "")
@@ -343,7 +343,7 @@ def _vision_chat_handler(spec: LoadSpec):
         raise InferenceError(f"Vision projector is missing: {spec.mmproj_path.name}")
     import ctypes
 
-    import llama_cpp.mtmd_cpp as mtmd_cpp
+    from llama_cpp import mtmd_cpp
     from llama_cpp._logger import llama_log_callback
     from llama_cpp.llama_chat_format import Llava15ChatHandler
 

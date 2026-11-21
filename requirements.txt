@@ -4,3 +4,4 @@ llama-cpp-python>=0.3.16     # llama.cpp inference (build with CMAKE_ARGS="-DGGM
 
 # Development
 pytest>=8
+ruff>=0.4
