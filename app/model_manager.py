@@ -449,7 +449,7 @@ class DownloadProgress:
     downloaded: int
     total: int
     speed_bps: float = 0.0
-    stage: str = "downloading"  # "preparing" (re-checking a partial) | "downloading" | "verifying"
+    stage: str = "downloading"  # "queued" | "preparing" | "downloading" | "verifying"
 
     @property
     def fraction(self) -> float:
@@ -553,7 +553,7 @@ class ModelDownloader:
     def _check_disk_space(self, directory: Path) -> None:
         needed = sum(f.size for f in self.files_to_download) - self.store.partial_bytes(self.entry.id)
         free = shutil.disk_usage(directory).free
-        if needed > free - 200 * 1024**2:
+        if needed > free - DISK_HEADROOM_BYTES:
             raise DownloadError(
                 f"Not enough disk space: {needed / 1024**3:.2f} GB needed, "
                 f"{free / 1024**3:.2f} GB free."
