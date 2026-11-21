@@ -801,6 +801,13 @@ class Backend(QObject):
             src = Path(p)
             if src.suffix.lower() not in IMAGE_SUFFIXES or not src.is_file():
                 continue
+            # If the source file is already stored in our attachments directory, reuse it
+            try:
+                if src.is_relative_to(self.paths.attachments):
+                    stored.append(str(src))
+                    continue
+            except (ValueError, TypeError):
+                pass
             suffix = src.suffix.lower()
             if suffix in (".png", ".jpg", ".jpeg"):
                 dest = self.paths.attachments / f"{uuid.uuid4().hex}{suffix}"
@@ -814,6 +821,81 @@ class Backend(QObject):
                     continue
             stored.append(str(dest))
         return stored
+
+    @Slot(result="QVariantMap")
+    @Slot(int, result="QVariantMap")
+    def pasteImageFromClipboard(self, current_count: int = 0) -> dict[str, Any]:
+        clipboard = QGuiApplication.clipboard()
+        if clipboard is None:
+            return {"status": "not_image"}
+
+        mime_data = clipboard.mimeData()
+        if mime_data is None:
+            return {"status": "not_image"}
+
+        # 1. Check for direct image in clipboard
+        if mime_data.hasImage():
+            image = clipboard.image()
+            if image.isNull():
+                data = mime_data.imageData()
+                if isinstance(data, QImage) and not data.isNull():
+                    image = data
+
+            if not image.isNull():
+                if not self.visionAvailable:
+                    self.toast.emit(
+                        "Image attachments require a vision-capable model. "
+                        "Install or select one to paste images.",
+                        "info",
+                    )
+                    return {"status": "rejected", "reason": "no_vision"}
+
+                if current_count >= 4:
+                    self.toast.emit("Only up to 4 images can be attached per message.", "info")
+                    return {"status": "rejected", "reason": "limit_reached"}
+
+                self.paths.ensure()
+                dest = (self.paths.attachments / f"{uuid.uuid4().hex}.png").resolve()
+                if not image.save(str(dest), "PNG"):
+                    self.toast.emit("Could not save clipboard image.", "error")
+                    return {"status": "error", "reason": "save_failed"}
+
+                uri = dest.as_uri()
+                return {"status": "success", "path": uri, "paths": [uri]}
+
+        # 2. Check for file URLs pointing to images
+        if mime_data.hasUrls():
+            image_paths: list[str] = []
+            for url in mime_data.urls():
+                if url.isLocalFile():
+                    local_path = url.toLocalFile()
+                    p = Path(local_path)
+                    if p.suffix.lower() in IMAGE_SUFFIXES and p.is_file():
+                        image_paths.append(local_path)
+
+            if image_paths:
+                if not self.visionAvailable:
+                    self.toast.emit(
+                        "Image attachments require a vision-capable model. "
+                        "Install or select one to paste images.",
+                        "info",
+                    )
+                    return {"status": "rejected", "reason": "no_vision"}
+
+                available_slots = max(0, 4 - current_count)
+                if available_slots <= 0:
+                    self.toast.emit("Only up to 4 images can be attached per message.", "info")
+                    return {"status": "rejected", "reason": "limit_reached"}
+
+                to_store = image_paths[:available_slots]
+                stored = self._store_attachments(to_store)
+                if not stored:
+                    return {"status": "error", "reason": "store_failed"}
+
+                uris = [Path(s).resolve().as_uri() for s in stored]
+                return {"status": "success", "path": uris[0], "paths": uris}
+
+        return {"status": "not_image"}
 
     @Slot()
     def regenerate(self) -> None:
