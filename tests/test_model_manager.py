@@ -18,7 +18,6 @@ from app.model_manager import (
     verify_installed_model,
 )
 
-
 # --------------------------------------------------------------- registry
 
 

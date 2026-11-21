@@ -80,6 +80,7 @@ def test_failed_load_leaves_runtime_empty_and_usable(runtime):
 def test_missing_model_file_suggests_verify_files(tmp_path, monkeypatch):
     import sys
     from unittest.mock import MagicMock
+
     from app.inference import LlamaCppEngine
 
     monkeypatch.setitem(sys.modules, "llama_cpp", MagicMock())

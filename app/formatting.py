@@ -11,7 +11,7 @@ from __future__ import annotations
 import html
 import re
 
-_FENCE = re.compile(r"^```[ \t]*([\w+#.-]*)[^\n]*\n", re.M)
+_FENCE = re.compile(r"^```[ \t]*([\w+#.-]*)[^\n]*\n", re.MULTILINE)
 _THINK_OPEN = "<think>"
 _THINK_CLOSE = "</think>"
 
@@ -69,7 +69,7 @@ def _tokenizer(lang: str) -> re.Pattern[str]:
         r"|(?P<string>\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''|\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`)"
         r"|(?P<number>\b\d+(?:\.\d+)?(?:e[+-]?\d+)?\b|\b0x[0-9a-f]+\b)"
         r"|(?P<word>\b[A-Za-z_][A-Za-z0-9_]*\b)",
-        re.I,
+        re.IGNORECASE,
     )
 
 
@@ -113,7 +113,7 @@ def _split_code(text: str, palette: dict[str, str]) -> list[dict]:
         if before.strip():
             segments.append({"kind": "text", "text": before.strip("\n"), "lang": "", "html": ""})
         lang = m.group(1)
-        close = re.compile(r"^[ \t]*```[ \t]*$", re.M).search(text, m.end())
+        close = re.compile(r"^[ \t]*```[ \t]*$", re.MULTILINE).search(text, m.end())
         code_end = close.start() if close else len(text)
         code = text[m.end() : code_end].rstrip("\n")
         segments.append({

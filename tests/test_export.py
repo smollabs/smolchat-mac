@@ -10,14 +10,11 @@ import json
 import math
 import types
 
-import pytest
-
 from app.export import (
     conversation_to_json,
     conversation_to_markdown,
     default_filename,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers — build lightweight fake Conversation / Message objects
