@@ -85,3 +85,25 @@ def test_loaded_model_is_preferred_when_close():
     other = "smollm2-360m-instruct" if base.model_id != "smollm2-360m-instruct" else "smollm2-135m-instruct"
     sticky = route(req, TEXT_MODELS, SystemState(12 * GB, 16 * GB, loaded_model_id=other, loaded_model_bytes=GB // 2))
     assert sticky.model_id == other
+
+def test_multilingual_complex_requests():
+    requests = [
+        "Explica paso a paso cómo funciona este codigo y compara dos enfoques",
+        "Explique etape par etape comment analyser cet algorithme",
+        "Erklaere schritt fuer schritt, wie dieser Algorithmus funktioniert",
+    ]
+
+    for text in requests:
+        task, complexity = classify(RouteRequest(text))
+        assert task == "chat"
+        assert complexity > 0.6
+
+
+def test_multilingual_document_detection():
+    for text in [
+        "Extrae los datos de esta factura",
+        "Lies die Daten aus dieser Rechnung",
+        "Extraire les informations de cette facture",
+    ]:
+        task, _ = classify(RouteRequest(text, has_images=True))
+        assert task == "document"
