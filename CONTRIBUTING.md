@@ -450,3 +450,15 @@ scripts/make_dmg.sh      # → dist/SmolChat-<version>.dmg
 ## License
 
 SmolChat is licensed under Apache-2.0. By contributing, you agree that your contributions are licensed under the same terms.
+
+## GitHub issue and pull request templates
+
+When reporting a bug or suggesting a feature, use the forms available under
+`.github/ISSUE_TEMPLATE/`. Bug reports collect the system, model, reproduction,
+and log details needed to investigate problems. Feature requests ask contributors
+to consider SmolChat's offline, privacy, and non-blocking UI principles.
+
+When opening a pull request, use the template at
+`.github/pull_request_template.md`. Complete its testing and review checklist,
+link the assigned issue with `Fixes #<issue-number>`, and include Light and Dark
+theme screenshots when making UI changes.

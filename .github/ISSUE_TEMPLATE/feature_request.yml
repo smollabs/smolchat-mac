@@ -1,0 +1,47 @@
+﻿name: Feature request
+description: Suggest an improvement or new feature for SmolChat
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        SmolChat is designed to run locally and protect user privacy.
+        Feature requests should respect the project's offline-first principles.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this feature solve?
+      description: Describe the problem or user need.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the feature or improvement you would like.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: project_rules
+    attributes:
+      label: Project rules
+      description: Confirm how your proposal respects SmolChat's principles.
+      options:
+        - label: Works offline and does not introduce unnecessary network calls.
+          required: true
+        - label: Keeps chats, prompts, and attachments private on the Mac.
+          required: true
+        - label: Keeps the user interface non-blocking.
+          required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe any alternative solutions you considered.
+    validations:
+      required: false

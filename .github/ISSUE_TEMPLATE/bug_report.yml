@@ -1,0 +1,92 @@
+﻿name: Bug report
+description: Report a problem with SmolChat
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please provide accurate details so the issue can be reproduced.
+        Remove names, file paths, chat content, and other private information from logs.
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      description: For example, macOS 15.2.
+      placeholder: macOS version
+    validations:
+      required: true
+
+  - type: input
+    id: chip
+    attributes:
+      label: Mac chip
+      description: For example, Apple M1, M2, M3, or Intel.
+      placeholder: Chip model
+    validations:
+      required: true
+
+  - type: input
+    id: memory
+    attributes:
+      label: Memory (RAM)
+      description: Memory shown in About This Mac or System Settings.
+      placeholder: 8 GB, 16 GB, etc.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: SmolChat version or commit
+      description: Include the app version or Git commit if known.
+      placeholder: Version or commit hash
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Model in use
+      description: Which model were you using when the issue occurred?
+      placeholder: Model name
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the exact steps needed to reproduce the issue.
+      placeholder: |
+        1. Open SmolChat.
+        2. Select a model.
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant smolchat.log excerpt
+      description: Paste the relevant log lines. Remove all private information first. If no relevant log is available, explain why.
+      render: text
+    validations:
+      required: true
