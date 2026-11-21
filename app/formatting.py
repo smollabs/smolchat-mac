@@ -11,7 +11,7 @@ from __future__ import annotations
 import html
 import re
 
-_FENCE = re.compile(r"^```[ \t]*([\w+#.-]*)[^\n]*\n", re.M)
+
 _THINK_OPEN = "<think>"
 _THINK_CLOSE = "</think>"
 
@@ -52,12 +52,28 @@ _KEYWORDS = {
     "primary key foreign references distinct union all",
 }
 _LANG_ALIASES = {
-    "py": "python", "python": "python", "python3": "python",
-    "js": "js", "javascript": "js", "ts": "js", "typescript": "js", "jsx": "js", "tsx": "js",
-    "json": "js", "java": "c", "kotlin": "c", "c": "c", "cpp": "c", "c++": "c", "cc": "c",
-    "h": "c", "cs": "c", "csharp": "c", "rust": "c", "rs": "c", "go": "c", "swift": "c",
-    "bash": "shell", "sh": "shell", "zsh": "shell", "shell": "shell", "console": "shell",
-    "sql": "sql",
+        # HTML and XML
+    "html": "js", "htm": "js", "xml": "js",
+    "xhtml": "js", "svg": "js",
+
+    # CSS
+    "css": "js", "scss": "js", "sass": "js", "less": "js",
+
+    # Configuration formats
+    "yaml": "shell", "yml": "shell", "toml": "shell",
+    "ini": "shell", "cfg": "shell", "conf": "shell",
+
+    # Markdown and diff
+    "md": "js", "markdown": "js",
+    "diff": "shell", "patch": "shell",
+
+    # Docker
+    "dockerfile": "shell", "docker": "shell",
+
+    # Other languages
+    "rb": "python", "ruby": "python",
+    "php": "js", "lua": "c",
+    "r": "python", "rscript": "python",
 }
 _HASH_COMMENT = {"python", "shell"}
 
@@ -74,20 +90,36 @@ def _tokenizer(lang: str) -> re.Pattern[str]:
 
 
 def highlight(code: str, lang: str, palette: dict[str, str]) -> str:
-    """Return HTML for ``code`` with spans coloured from ``palette``."""
-    family = _LANG_ALIASES.get(lang.lower(), "")
+    """Return HTML for code with spans coloured from the palette."""
+    language = lang.lower().strip()
+
+    # Highlight added and removed diff lines.
+    if language in {"diff", "patch"}:
+        return "".join(
+            f'<span style="color:{palette["keyword"] if line.startswith("+") else palette["comment"]}">{html.escape(line)}</span>'
+            if line.startswith(("+", "-")) else html.escape(line)
+            for line in code.splitlines(keepends=True)
+        )
+
+    family = _LANG_ALIASES.get(language, "")
     if not family:
         return html.escape(code)
+
     keywords = set(_KEYWORDS[family].split())
+
     if family == "sql":
         keywords |= {k.upper() for k in keywords}
+
     out: list[str] = []
     pos = 0
+
     for m in _tokenizer(family).finditer(code):
-        out.append(html.escape(code[pos : m.start()]))
+        out.append(html.escape(code[pos:m.start()]))
+
         kind = m.lastgroup
         token = m.group()
         color = None
+
         if kind == "word":
             if token in keywords:
                 color = palette["keyword"]
@@ -95,38 +127,82 @@ def highlight(code: str, lang: str, palette: dict[str, str]) -> str:
                 color = palette["builtin"]
         else:
             color = palette[kind]
+
         escaped = html.escape(token)
-        out.append(f'<span style="color:{color}">{escaped}</span>' if color else escaped)
+        out.append(
+            f'<span style="color:{color}">{escaped}</span>'
+            if color else escaped
+        )
         pos = m.end()
+
     out.append(html.escape(code[pos:]))
     return "".join(out)
 
 
 def _split_code(text: str, palette: dict[str, str]) -> list[dict]:
+    """Split Markdown fenced blocks using backticks or tildes."""
+    lines = text.splitlines(keepends=True)
     segments: list[dict] = []
-    pos = 0
-    while True:
-        m = _FENCE.search(text, pos)
-        if not m:
-            break
-        before = text[pos : m.start()]
-        if before.strip():
-            segments.append({"kind": "text", "text": before.strip("\n"), "lang": "", "html": ""})
-        lang = m.group(1)
-        close = re.compile(r"^[ \t]*```[ \t]*$", re.M).search(text, m.end())
-        code_end = close.start() if close else len(text)
-        code = text[m.end() : code_end].rstrip("\n")
+    prose: list[str] = []
+    index = 0
+
+    def flush_prose() -> None:
+        value = "".join(prose).strip("\n")
+        if value.strip():
+            segments.append({
+                "kind": "text",
+                "text": value,
+                "lang": "",
+                "html": "",
+            })
+        prose.clear()
+
+    while index < len(lines):
+        opening = re.match(
+            r"^ {0,3}(`{3,}|~{3,})[ \t]*([\w+#.-]*)[^\n]*$",
+            lines[index].rstrip("\r\n"),
+        )
+
+        if not opening:
+            prose.append(lines[index])
+            index += 1
+            continue
+
+        flush_prose()
+
+        fence = opening.group(1)
+        marker = fence[0]
+        length = len(fence)
+        lang = opening.group(2)
+
+        index += 1
+        code_lines: list[str] = []
+        closed = False
+
+        close_re = re.compile(
+            rf"^ {{0,3}}{re.escape(marker)}{{{length},}}[ \t]*$"
+        )
+
+        while index < len(lines):
+            if close_re.match(lines[index].rstrip("\r\n")):
+                closed = True
+                index += 1
+                break
+
+            code_lines.append(lines[index])
+            index += 1
+
+        code = "".join(code_lines).rstrip("\r\n")
+
         segments.append({
             "kind": "code",
             "text": code,
             "lang": lang,
             "html": highlight(code, lang, palette),
-            "open": close is None,
+            "open": not closed,
         })
-        pos = close.end() if close else len(text)
-    tail = text[pos:]
-    if tail.strip():
-        segments.append({"kind": "text", "text": tail.strip("\n"), "lang": "", "html": ""})
+
+    flush_prose()
     return segments
 
 
