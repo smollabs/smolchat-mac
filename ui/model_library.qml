@@ -154,6 +154,28 @@ Popup {
 
         C.Separator { Layout.fillWidth: true }
 
+        // A failed catalogue load must not look like "no models": say so, persistently.
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.margins: 16
+            visible: backend.startupError !== ""
+            implicitHeight: libErr.implicitHeight + 24
+            radius: 12
+            color: Theme.dangerBg
+            border.color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.5)
+            Accessible.role: Accessible.AlertMessage
+            Accessible.name: backend.startupError
+            Text {
+                id: libErr
+                anchors.fill: parent
+                anchors.margins: 12
+                text: backend.startupError
+                color: Theme.text
+                font.pixelSize: Theme.fontSm + 1
+                wrapMode: Text.Wrap
+            }
+        }
+
         // ------------------------------------------------------------- list
         ListView {
             id: list

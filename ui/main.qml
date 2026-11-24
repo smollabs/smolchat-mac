@@ -294,6 +294,71 @@ ApplicationWindow {
         MouseArea { anchors.fill: parent; onClicked: toast.shown = false }
     }
 
+    // ------------------------------------------------- start-up problems
+    // Shown once start-up finishes. The error stays; the notice can be dismissed.
+    Rectangle {
+        id: startupBanner
+        parent: Overlay.overlay
+        z: 800
+        readonly property bool hasError: backend.startupError !== ""
+        readonly property bool hasNotice: backend.startupNotice !== ""
+        visible: backend.ready && (hasError || hasNotice)
+        x: Math.max(40, (window.width - width) / 2)
+        y: 14
+        width: Math.min(620, window.width - 80)
+        height: bannerRow.implicitHeight + 24
+        radius: 14
+        color: hasError ? Theme.dangerBg : Theme.popup
+        border.color: hasError ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.5)
+                               : Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.5)
+
+        Accessible.role: Accessible.AlertMessage
+        Accessible.name: (backend.startupError + " " + backend.startupNotice).trim()
+
+        RowLayout {
+            id: bannerRow
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 12
+            spacing: 10
+            C.Icon {
+                name: "alert"
+                size: 16
+                color: startupBanner.hasError ? Theme.danger : Theme.warning
+                Layout.alignment: Qt.AlignTop
+            }
+            ColumnLayout {
+                id: bannerCol
+                Layout.fillWidth: true
+                spacing: 6
+                Text {
+                    visible: startupBanner.hasError
+                    Layout.fillWidth: true
+                    text: backend.startupError
+                    color: Theme.text
+                    font.pixelSize: Theme.fontMd - 1
+                    wrapMode: Text.Wrap
+                }
+                Text {
+                    visible: startupBanner.hasNotice
+                    Layout.fillWidth: true
+                    text: backend.startupNotice
+                    color: Theme.text
+                    font.pixelSize: Theme.fontMd - 1
+                    wrapMode: Text.Wrap
+                }
+            }
+            C.IconButton {
+                visible: !startupBanner.hasError && startupBanner.hasNotice
+                iconName: "close"
+                Layout.alignment: Qt.AlignTop
+                onClicked: backend.dismissStartupNotice()
+                Accessible.name: "Dismiss"
+            }
+        }
+    }
+
     Connections {
         target: backend
         function onToast(message, kind) {

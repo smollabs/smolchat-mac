@@ -8,13 +8,17 @@ generation results safely.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
 
@@ -64,6 +68,57 @@ class Message:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+def is_corruption_error(exc: BaseException) -> bool:
+    """True for sqlite errors that mean the file itself is damaged.
+
+    ``OperationalError`` (locked, read-only, disk full, can't open) is excluded on
+    purpose: those are environmental, and moving a healthy database aside for them
+    would hide the user's chats.
+    """
+    return isinstance(exc, sqlite3.DatabaseError) and not isinstance(exc, sqlite3.OperationalError)
+
+
+def quarantine_database(path: Path | str, now: datetime | None = None) -> Path:
+    """Move a damaged database (and its WAL/SHM sidecars) out of the way.
+
+    Returns the new location of the main file, ``<name>.corrupt-<YYYYmmdd-HHMMSS>``.
+    """
+    path = Path(path)
+    stamp = (now or datetime.now()).strftime("%Y%m%d-%H%M%S")
+    target = path.with_name(f"{path.name}.corrupt-{stamp}")
+    n = 1
+    while target.exists():  # two crashes within one second
+        n += 1
+        target = path.with_name(f"{path.name}.corrupt-{stamp}-{n}")
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        src = path.with_name(path.name + suffix)
+        if src.exists():
+            src.replace(target.with_name(target.name + suffix))
+    return target
+
+
+def open_database(path: Path | str) -> tuple[ChatDatabase, Path | None]:
+    """Open the chat database, recovering from a corrupt file.
+
+    Returns ``(db, backup)``. ``backup`` is ``None`` for a normal open; if the file
+    was damaged it is the path the old file was moved to, and ``db`` is a fresh,
+    empty database at ``path``.
+    """
+    try:
+        db = ChatDatabase(path)
+        if not db.integrity_ok():
+            db.close()
+            raise sqlite3.DatabaseError("database disk image is malformed (quick_check failed)")
+        return db, None
+    except sqlite3.DatabaseError as exc:
+        if str(path) == ":memory:" or not is_corruption_error(exc):
+            raise
+        log.error("Chat database %s is corrupt (%s); moving it aside", path, exc)
+    backup = quarantine_database(path)
+    log.warning("Corrupt chat database saved as %s", backup)
+    return ChatDatabase(path), backup
+
+
 class ChatDatabase:
     def __init__(self, path: Path | str):
         self.path = str(path)
@@ -71,17 +126,28 @@ class ChatDatabase:
             Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._conn = sqlite3.connect(self.path, check_same_thread=False)
-        self._conn.create_function(
-            "casefold", 1,
-            lambda v: v.casefold() if isinstance(v, str) else v,
-            deterministic=True,
-        )
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA foreign_keys = ON")
-        self._conn.execute("PRAGMA journal_mode = WAL")
-        with self._conn:
-            self._conn.executescript(SCHEMA)
-            self._conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        try:
+            self._conn.create_function(
+                "casefold", 1,
+                lambda v: v.casefold() if isinstance(v, str) else v,
+                deterministic=True,
+            )
+            self._conn.row_factory = sqlite3.Row
+            self._conn.execute("PRAGMA foreign_keys = ON")
+            self._conn.execute("PRAGMA journal_mode = WAL")
+            with self._conn:
+                self._conn.executescript(SCHEMA)
+                self._conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        except Exception:
+            # Don't leak the handle: the caller may want to move the file aside.
+            self._conn.close()
+            raise
+
+    def integrity_ok(self) -> bool:
+        """Cheap structural check (``PRAGMA quick_check``)."""
+        with self._lock:
+            rows = self._conn.execute("PRAGMA quick_check").fetchall()
+        return len(rows) == 1 and rows[0][0] == "ok"
 
     def close(self) -> None:
         with self._lock:

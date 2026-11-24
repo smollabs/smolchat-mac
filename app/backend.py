@@ -35,7 +35,7 @@ from PySide6.QtQuick import QQuickImageProvider
 from PySide6.QtSvg import QSvgRenderer
 
 from .config import AppPaths, HardwareInfo, Settings, available_memory_bytes, resource_root
-from .database import ChatDatabase, Conversation, suggest_title
+from .database import ChatDatabase, Conversation, open_database, suggest_title
 from .export import conversation_to_json, conversation_to_markdown, default_filename
 from .formatting import DARK_SYNTAX, LIGHT_SYNTAX, segment_message, strip_reasoning
 from .inference import (
@@ -236,6 +236,7 @@ class Backend(QObject):
     searchChanged = Signal()
     libraryChanged = Signal()
     recommendationChanged = Signal()
+    startupIssuesChanged = Signal()
 
     # User-facing notifications
     toast = Signal(str, str)  # message, kind ("info" | "error")
@@ -254,7 +255,17 @@ class Backend(QObject):
         self.paths = paths
         self.paths.ensure()
         self.settings = Settings.load(paths.settings_file)
-        self.db = ChatDatabase(paths.database)
+        # Start-up problems, surfaced in the UI. ``notice`` can be dismissed (a recovered
+        # database, an approximate hardware profile); ``error`` stays until the next launch
+        # (an empty model catalogue, a failed scan) so it is never mistaken for "no models".
+        self._startup_notice = ""
+        self._startup_error = ""
+        self.db, backup = open_database(paths.database)
+        if backup is not None:
+            self._startup_notice = (
+                "Your chat history couldn't be read, so SmolChat started with a new, empty one. "
+                f"The damaged file was kept as “{backup.name}” in {backup.parent}."
+            )
         self.registry = ModelRegistry([])
         self.store: ModelStore | None = None
         self.hardware: HardwareInfo | None = None
@@ -326,44 +337,130 @@ class Backend(QObject):
         self.initStatusChanged.emit()
 
     def _init_worker(self) -> None:
+        """Run the slow start-up steps. Each step is isolated: one failure is recorded
+        under ``errors`` and the steps that don't depend on it still run."""
         result: dict[str, Any] = {}
-        try:
-            self._initDone.emit({"status": "Loading model registry…"})
-            result["registry"] = ModelRegistry.load(self.paths.registry_file)
-            self._initDone.emit({"status": "Detecting hardware…"})
-            result["hardware"] = HardwareInfo.detect()
-            self._initDone.emit({"status": "Scanning downloaded models…"})
-            store = ModelStore(self.paths, result["registry"])
-            result["store"] = store
-            result["installed"] = store.installed()
-            self._initDone.emit({"status": "Preparing local runtime…"})
-            result["runtime"] = llama_cpp_available()
-        except Exception as exc:  # pragma: no cover - reported to the UI
-            log.exception("Initialisation failed")
-            result["error"] = str(exc)
+        errors: dict[str, str] = {}
+
+        def step(name: str, status: str, fn) -> Any:
+            self._initDone.emit({"status": status})
+            try:
+                return fn()
+            except Exception as exc:  # reported to the UI
+                log.exception("Initialisation step %r failed", name)
+                errors[name] = str(exc) or type(exc).__name__
+                return None
+
+        registry = step("registry", "Loading model registry…",
+                        lambda: ModelRegistry.load(self.paths.registry_file))
+        if registry is not None:
+            result["registry"] = registry
+        hardware = step("hardware", "Detecting hardware…", HardwareInfo.detect)
+        if hardware is not None:
+            result["hardware"] = hardware
+        if registry is not None:
+            store = step("store", "Scanning downloaded models…",
+                         lambda: ModelStore(self.paths, registry))
+            if store is not None:
+                result["store"] = store
+                installed = step("store", "Scanning downloaded models…", store.installed)
+                if installed is not None:
+                    result["installed"] = installed
+        runtime = step("runtime", "Preparing local runtime…", llama_cpp_available)
+        if runtime is not None:
+            result["runtime"] = runtime
+        if errors:
+            result["errors"] = errors
+            result["error"] = "; ".join(errors.values())
         result["done"] = True
         self._initDone.emit(result)
 
+    _STARTUP_ERROR_TEXT = {
+        "registry": (
+            "The model catalogue (models.json) could not be loaded, so the Model Library is "
+            "empty. Reinstall SmolChat to restore it."
+        ),
+        "store": "The downloaded-models folder could not be scanned, so installed models aren't shown.",
+        "runtime": "The local llama.cpp runtime could not be checked, so chatting may not work.",
+        "init": "SmolChat hit an error while starting up.",
+    }
+
+    def _fallback_hardware(self) -> HardwareInfo:
+        """A conservative profile for when detection fails (so a retry can't raise again)."""
+        return HardwareInfo(
+            arch="unknown", chip="Unknown", total_ram_bytes=8 * 1024**3, cpu_cores=1,
+            apple_silicon=False, metal=False,
+        )
+
     @Slot(object)
     def _on_init_done(self, result: dict[str, Any]) -> None:
+        """Apply the start-up result. Tolerates any subset of keys: it must never raise,
+        because an exception in a Qt slot would leave the app on the splash screen."""
         if "status" in result and not result.get("done"):
             self._set_init_status(result["status"])
             return
-        if "error" in result:
-            self._set_init_status(f"Startup error: {result['error']}")
-        if "registry" in result:
-            self.registry = result["registry"]
+        errors: dict[str, str] = dict(result.get("errors") or {})
+        if "error" in result and not errors:
+            errors["init"] = str(result["error"])  # result from an older/other producer
+
+        registry = result.get("registry")
+        if registry is not None:
+            self.registry = registry
+        if result.get("store") is not None:
             self.store = result["store"]
+        if result.get("hardware") is not None:
             self.hardware = result["hardware"]
+        elif "hardware" in errors or "registry" in result:
+            self.hardware = self._fallback_hardware()
+            if "hardware" in errors:
+                self._startup_notice = (
+                    "Couldn't detect this Mac's hardware; model compatibility is estimated "
+                    f"conservatively. ({errors['hardware']})"
+                )
+        if result.get("installed") is not None:
             self._installed = result["installed"]
-            self._runtime_ok, self._runtime_version = result["runtime"]
-            if not self._runtime_ok:
-                log.error("llama.cpp runtime unavailable: %s", self._runtime_version)
+        runtime = result.get("runtime")
+        if runtime is not None:
+            try:
+                self._runtime_ok, self._runtime_version = runtime
+            except (TypeError, ValueError):
+                self._runtime_ok, self._runtime_version = False, "unexpected runtime result"
+        if not self._runtime_ok:
+            log.error("llama.cpp runtime unavailable: %s", self._runtime_version)
+
+        try:
             self.refresh_library()
+        except Exception as exc:
+            log.exception("Refreshing the model library failed")
+            errors.setdefault("store", str(exc) or type(exc).__name__)
+
+        problems = [
+            f"{self._STARTUP_ERROR_TEXT[k]} ({errors[k]})"
+            for k in ("registry", "store", "runtime", "init") if k in errors
+        ]
+        self._startup_error = "\n".join(problems)
+        for k in problems:
+            log.error("Startup problem: %s", k)
+
         self._ready = True
-        self._set_init_status("Ready")
+        self._set_init_status("Started with errors" if self._startup_error else "Ready")
+        self.startupIssuesChanged.emit()
         self.readyChanged.emit()
         self.modelStateChanged.emit()
+
+    @Property(str, notify=startupIssuesChanged)
+    def startupNotice(self) -> str:  # noqa: N802
+        return self._startup_notice
+
+    @Property(str, notify=startupIssuesChanged)
+    def startupError(self) -> str:  # noqa: N802
+        return self._startup_error
+
+    @Slot()
+    def dismissStartupNotice(self) -> None:  # noqa: N802
+        if self._startup_notice:
+            self._startup_notice = ""
+            self.startupIssuesChanged.emit()
 
     @Property(bool, notify=readyChanged)
     def ready(self) -> bool:
@@ -392,7 +489,13 @@ class Backend(QObject):
         return APP_VERSION
 
     def device_profile(self) -> DeviceProfile:
-        hw = self.hardware or HardwareInfo.detect()
+        hw = self.hardware
+        if hw is None:
+            try:
+                hw = HardwareInfo.detect()
+            except Exception:
+                log.exception("Hardware detection failed")
+                hw = self._fallback_hardware()
         try:
             free = shutil.disk_usage(self.paths.models).free
         except OSError:
